@@ -8,6 +8,9 @@ import { normalizeLiteSessions } from "../lib/courseSessions";
 import { validateForSubmission } from "../lib/validation";
 import { CourseCard } from "../components/CourseCard";
 import { ArtisticCard } from "../components/ArtisticCard";
+import { DateTimeRangeField } from "../components/DateTimeRangeField";
+import { LAB_OPTIONS } from "../lib/labs";
+import { HelpTip } from "../components/Tooltip";
 
 type StepId =
   | "tipo"
@@ -123,7 +126,7 @@ export function WizardPage() {
   const steps = useMemo((): { id: StepId; label: string }[] => {
     if (kind === "course") {
       return [
-        { id: "tipo", label: "Tipo" },
+        { id: "tipo", label: "Tipo de ficha" },
         { id: "contacto", label: "Contacto" },
         { id: "sesiones", label: "Sesiones" },
         { id: "logistica", label: "Logística" },
@@ -134,7 +137,7 @@ export function WizardPage() {
     }
 
     return [
-      { id: "tipo", label: "Tipo" },
+      { id: "tipo", label: "Tipo de ficha" },
       { id: "general", label: "General" },
       { id: "logistica_art", label: "Logística" },
       { id: "difusion_art", label: "Difusión" },
@@ -241,7 +244,7 @@ export function WizardPage() {
     <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Wizard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Creador de ficha</h1>
           <div className="mt-1 text-sm text-slate-600">Paso {stepIndex + 1} de {steps.length}: <b>{step.label}</b></div>
         </div>
         <Link
@@ -252,31 +255,6 @@ export function WizardPage() {
         </Link>
       </div>
 
-      <div className="mt-6">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={
-              "rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-black/5 " +
-              (kind === "course" ? "bg-indigo-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50")
-            }
-            onClick={() => setKind("course")}
-          >
-            Taller / Curso
-          </button>
-          <button
-            type="button"
-            className={
-              "rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-black/5 " +
-              (kind === "artistic" ? "bg-indigo-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50")
-            }
-            onClick={() => setKind("artistic")}
-          >
-            Actividad artística
-          </button>
-        </div>
-      </div>
-
       {warning ? (
         <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">{warning}</div>
       ) : null}
@@ -284,12 +262,23 @@ export function WizardPage() {
       <div className="mt-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
         {step.id === "tipo" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Título">
+            <Field label={<>Tipo de ficha<HelpTip text="Selecciona el tipo de ficha. Esto define las secciones que verás después." /></>}>
+              <select
+                className={inputCls}
+                value={kind}
+                onChange={(e) => setKind(e.target.value as ActivityType)}
+              >
+                <option value="course">Ficha académica (Taller/Curso)</option>
+                <option value="artistic">Ficha de actividad artística</option>
+              </select>
+            </Field>
+
+            <Field label={<>Título<HelpTip text="Nombre de la actividad. Se usa en la ficha y exportaciones." /></>}>
               <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej. Taller de Electrónica" />
             </Field>
 
             {kind === "course" ? (
-              <Field label="Tipo (curso/taller/seminario)">
+              <Field label={<>Tipo (curso/taller/seminario)<HelpTip text="Etiqueta del formato académico." /></>}>
                 <select
                   className={inputCls}
                   value={course.typeLabel}
@@ -310,8 +299,19 @@ export function WizardPage() {
             <Field label="Persona que imparte">
               <input className={inputCls} value={course.instructor} onChange={(e) => setCourse((c) => ({ ...c, instructor: e.target.value }))} />
             </Field>
-            <Field label="Laboratorio que organiza">
-              <input className={inputCls} value={course.organizingLab} onChange={(e) => setCourse((c) => ({ ...c, organizingLab: e.target.value }))} />
+            <Field label={<>Laboratorio que organiza<HelpTip text="Selecciona el laboratorio responsable." /></>}>
+              <select
+                className={inputCls}
+                value={course.organizingLab}
+                onChange={(e) => setCourse((c) => ({ ...c, organizingLab: e.target.value }))}
+              >
+                <option value="">—</option>
+                {LAB_OPTIONS.map((lab) => (
+                  <option key={lab} value={lab}>
+                    {lab}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Correo de contacto">
               <input className={inputCls} value={course.contactEmail} onChange={(e) => setCourse((c) => ({ ...c, contactEmail: e.target.value }))} />
@@ -347,8 +347,8 @@ export function WizardPage() {
 
         {kind === "course" && step.id === "logistica" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Fecha y horarios (texto general)">
-              <input className={inputCls} value={course.dateAndTime} onChange={(e) => setCourse((c) => ({ ...c, dateAndTime: e.target.value }))} />
+            <Field label={<>Fecha y horarios (texto general)<HelpTip text="Fecha y horario general del curso/taller (texto corto para la ficha)." /></>}>
+              <DateTimeRangeField value={course.dateAndTime} onChange={(v) => setCourse((c) => ({ ...c, dateAndTime: v }))} />
             </Field>
             <Field label="Lugar">
               <input className={inputCls} value={course.place} onChange={(e) => setCourse((c) => ({ ...c, place: e.target.value }))} />
@@ -412,8 +412,19 @@ export function WizardPage() {
             <Field label="Participantes">
               <input className={inputCls} value={art.participants} onChange={(e) => setArt((a) => ({ ...a, participants: e.target.value }))} />
             </Field>
-            <Field label="Laboratorio que organiza">
-              <input className={inputCls} value={art.organizingLab} onChange={(e) => setArt((a) => ({ ...a, organizingLab: e.target.value }))} />
+            <Field label={<>Laboratorio que organiza<HelpTip text="Selecciona el laboratorio responsable." /></>}>
+              <select
+                className={inputCls}
+                value={art.organizingLab}
+                onChange={(e) => setArt((a) => ({ ...a, organizingLab: e.target.value }))}
+              >
+                <option value="">—</option>
+                {LAB_OPTIONS.map((lab) => (
+                  <option key={lab} value={lab}>
+                    {lab}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Nombre del ciclo">
               <input className={inputCls} value={art.cycleName} onChange={(e) => setArt((a) => ({ ...a, cycleName: e.target.value }))} />
@@ -439,14 +450,14 @@ export function WizardPage() {
 
         {kind === "artistic" && step.id === "logistica_art" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Fecha y horarios">
-              <input className={inputCls} value={art.dateAndTime} onChange={(e) => setArt((a) => ({ ...a, dateAndTime: e.target.value }))} />
+            <Field label={<>Fecha y horarios<HelpTip text="Fecha y horario general de la actividad." /></>}>
+              <DateTimeRangeField value={art.dateAndTime} onChange={(v) => setArt((a) => ({ ...a, dateAndTime: v }))} />
             </Field>
-            <Field label="Ensayos (fecha y horarios)">
-              <input className={inputCls} value={art.rehearsalSchedule} onChange={(e) => setArt((a) => ({ ...a, rehearsalSchedule: e.target.value }))} />
+            <Field label={<>Ensayos (fecha y horarios)<HelpTip text="Si aplica, fecha y horario de ensayos." /></>}>
+              <DateTimeRangeField value={art.rehearsalSchedule} onChange={(v) => setArt((a) => ({ ...a, rehearsalSchedule: v }))} />
             </Field>
-            <Field label="Montaje (fecha y horarios)">
-              <input className={inputCls} value={art.setupSchedule} onChange={(e) => setArt((a) => ({ ...a, setupSchedule: e.target.value }))} />
+            <Field label={<>Montaje (fecha y horarios)<HelpTip text="Si aplica, fecha y horario de montaje." /></>}>
+              <DateTimeRangeField value={art.setupSchedule} onChange={(v) => setArt((a) => ({ ...a, setupSchedule: v }))} />
             </Field>
             <Field label="Lugar">
               <input className={inputCls} value={art.place} onChange={(e) => setArt((a) => ({ ...a, place: e.target.value }))} />
@@ -537,7 +548,7 @@ export function WizardPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <label className="block">
       <div className="mb-1 text-sm font-medium text-slate-700">{label}</div>
