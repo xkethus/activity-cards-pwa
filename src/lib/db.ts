@@ -74,12 +74,56 @@ export function findUserByAccessCode(code: string): UserRecord | null {
   return users.find((u) => u.accessCode === normalized) ?? null;
 }
 
+function parseTimeRangeToStartEnd(timeText: string): { startTime: string; endTime: string } {
+  const t = (timeText || "").trim();
+  const m = t.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  if (!m) return { startTime: "", endTime: "" };
+  const startTime = m[1].padStart(5, "0");
+  const endTime = m[2].padStart(5, "0");
+  return { startTime, endTime };
+}
+
+function migrateCourseSessions(activity: any) {
+  if (!activity || !Array.isArray(activity.sessions)) return activity;
+  // If already migrated
+  if (activity.sessions[0] && "dateISO" in activity.sessions[0]) return activity;
+
+  const migratedSessions = activity.sessions.map((s: any, idx: number) => {
+    const index = Number(s.index || idx + 1);
+    const { startTime, endTime } = parseTimeRangeToStartEnd(String(s.timeText || ""));
+    return {
+      index,
+      title: s.title || "",
+      dateISO: "",
+      startTime,
+      endTime,
+      durationHours: Number(s.durationHours || activity.hoursPerSession || 1),
+    };
+  });
+
+  return {
+    ...activity,
+    sessionsCount: Number(activity.sessionsCount || migratedSessions.length || 1),
+    hoursPerSession: Number(activity.hoursPerSession || 3),
+    sessions: migratedSessions,
+  };
+}
+
 export function loadDocs(): ActivityRecord[] {
   try {
     const raw = localStorage.getItem(DOCS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as ActivityRecord[];
-      return Array.isArray(parsed) ? parsed : [];
+      const docs = Array.isArray(parsed) ? parsed : [];
+      // migrate docs in-place (best effort)
+      const migrated = docs.map((d: any) => {
+        if (d?.doc?.kind === "course") {
+          return { ...d, doc: { ...d.doc, activity: migrateCourseSessions(d.doc.activity) } };
+        }
+        return d;
+      });
+      if (JSON.stringify(migrated) !== JSON.stringify(docs)) saveDocs(migrated as any);
+      return migrated as any;
     }
 
     // Migración: versión anterior guardaba un solo doc en activitycards.doc.v1

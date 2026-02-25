@@ -6,8 +6,9 @@ export function makeLiteSessions(n: number, hoursPerSession: number): SessionLit
     out.push({
       index: i,
       title: "",
-      dateText: "",
-      timeText: "",
+      dateISO: "",
+      startTime: "",
+      endTime: "",
       durationHours: hoursPerSession,
     });
   }
@@ -27,8 +28,9 @@ export function normalizeLiteSessions(
       prev ?? {
         index: i,
         title: "",
-        dateText: "",
-        timeText: "",
+        dateISO: "",
+        startTime: "",
+        endTime: "",
         durationHours: hoursPerSession,
       }
     );

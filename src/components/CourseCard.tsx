@@ -1,4 +1,5 @@
 import type { CourseActivity } from "../lib/types";
+import { formatSessionSchedule } from "../lib/format";
 
 export function CourseCard({ activity }: { activity: CourseActivity }) {
   return (
@@ -47,7 +48,8 @@ export function CourseCard({ activity }: { activity: CourseActivity }) {
                       {(s.title?.trim() ? s.title : "")}
                     </div>
                     <div className="mt-1 text-sm text-slate-700">
-                      {s.dateText || "(Fecha por definir)"} · {s.timeText || "(Horario por definir)"} · {s.durationHours}h
+                      {formatSessionSchedule({ dateISO: s.dateISO, startTime: s.startTime, endTime: s.endTime }) ||
+                        "(Fecha y horario por definir)"} · {s.durationHours}h
                     </div>
                   </div>
                 ))}

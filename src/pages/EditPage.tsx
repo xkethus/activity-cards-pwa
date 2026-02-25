@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { DatePickerField } from "../components/DatePickerField";
 import type {
   ActivityDoc,
   ArtisticActivity,
@@ -137,6 +138,19 @@ export function EditPage() {
                   type="button"
                   className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
                   onClick={() => {
+                    // Regla B: permitimos editar incompleto, pero NO dejar enviar a validación si faltan fechas/horarios.
+                    const d = doc;
+                    if (d.kind === "course") {
+                      const missing = d.activity.sessions.some(
+                        (s) => !s.dateISO || !s.startTime || !s.endTime
+                      );
+                      if (missing) {
+                        setStatus("Completa fechas y horarios de todas las sesiones antes de enviar a validación.");
+                        setTimeout(() => setStatus(""), 2500);
+                        return;
+                      }
+                    }
+
                     setRec((prev) => {
                       if (!prev) return prev;
                       const next: ActivityRecord = { ...prev, status: "ENVIADA", updatedAt: Date.now() };
@@ -570,8 +584,9 @@ function CourseEditor({
               {
                 index: nextIndex,
                 title: "",
-                dateText: "",
-                timeText: "",
+                dateISO: "",
+                startTime: "",
+                endTime: "",
                 durationHours: activity.hoursPerSession,
               },
             ];
@@ -859,9 +874,9 @@ function LiteSessionsEditor({
   onChange,
   onAdd,
 }: {
-  sessions: { index: number; title?: string; dateText: string; timeText: string; durationHours: number }[];
+  sessions: { index: number; title?: string; dateISO: string; startTime: string; endTime: string; durationHours: number }[];
   hoursPerSession: number;
-  onChange: (sessions: { index: number; title?: string; dateText: string; timeText: string; durationHours: number }[]) => void;
+  onChange: (sessions: { index: number; title?: string; dateISO: string; startTime: string; endTime: string; durationHours: number }[]) => void;
   onAdd: () => void;
 }) {
   return (
@@ -874,7 +889,7 @@ function LiteSessionsEditor({
           .map((s) => (
             <div key={s.index} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
               <div className="text-xs font-semibold text-slate-700">Sesión {s.index}</div>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-5">
                 <Field label="Título (opcional)">
                   <input
                     className={inputCls}
@@ -885,23 +900,31 @@ function LiteSessionsEditor({
                   />
                 </Field>
                 <Field label="Fecha">
-                  <input
-                    className={inputCls}
-                    value={s.dateText}
-                    onChange={(e) =>
-                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, dateText: e.target.value } : x)))
+                  <DatePickerField
+                    valueISO={s.dateISO}
+                    onChangeISO={(iso) =>
+                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, dateISO: iso } : x)))
                     }
-                    placeholder="Ej. 12/03/2026"
                   />
                 </Field>
-                <Field label="Horario">
+                <Field label="Inicio">
                   <input
+                    type="time"
                     className={inputCls}
-                    value={s.timeText}
+                    value={s.startTime}
                     onChange={(e) =>
-                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, timeText: e.target.value } : x)))
+                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, startTime: e.target.value } : x)))
                     }
-                    placeholder="Ej. 16:00 - 19:00"
+                  />
+                </Field>
+                <Field label="Fin">
+                  <input
+                    type="time"
+                    className={inputCls}
+                    value={s.endTime}
+                    onChange={(e) =>
+                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, endTime: e.target.value } : x)))
+                    }
                   />
                 </Field>
                 <Field label="Duración (h)">

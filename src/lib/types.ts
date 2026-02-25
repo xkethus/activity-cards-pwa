@@ -32,8 +32,9 @@ export type Session = {
 export type SessionLite = {
   index: number;
   title?: string;
-  dateText: string;
-  timeText: string;
+  dateISO: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
   durationHours: number;
 };
 

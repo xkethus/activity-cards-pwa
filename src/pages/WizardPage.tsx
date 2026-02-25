@@ -41,6 +41,12 @@ export function WizardPage() {
   const [activeSection, setActiveSection] = useState(sections[0].id);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // (Mejora UX) cuando el usuario cambia el tipo, llévalo a la sección de tipo
+  useEffect(() => {
+    const el = sectionRefs.current.tipo;
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [kind]);
+
   useMemo(() => {
     if (!auth) nav("/login");
   }, [auth, nav]);

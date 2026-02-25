@@ -1,4 +1,5 @@
 import type { ActivityDoc } from "../lib/types";
+import { formatDateDMY, formatTimeToH } from "../lib/format";
 
 export function toMarkdown(doc: ActivityDoc): string {
   if (doc.kind === "sessions") {
@@ -98,7 +99,14 @@ export function toMarkdown(doc: ActivityDoc): string {
     ...c.sessions
       .slice()
       .sort((a, b) => a.index - b.index)
-      .map((s) => `- Sesión ${s.index}: ${s.dateText || "(Fecha por definir)"} · ${s.timeText || "(Horario por definir)"} · ${s.durationHours}h${s.title?.trim() ? ` — ${s.title.trim()}` : ""}`),
+      .map((s) => {
+        const date = formatDateDMY(s.dateISO) || "(Fecha por definir)";
+        const start = formatTimeToH(s.startTime);
+        const end = formatTimeToH(s.endTime);
+        const time = start && end ? `${start}–${end}` : start || end || "(Horario por definir)";
+        const title = s.title?.trim() ? ` — ${s.title.trim()}` : "";
+        return `- Sesión ${s.index}: ${date} · ${time} · ${s.durationHours}h${title}`;
+      }),
     "",
     `## Objetivo`,
     c.objective,
