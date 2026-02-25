@@ -1,11 +1,114 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { DotNav, type DotStatus } from "../components/DotNav";
 import { loadAuth } from "../lib/auth";
 import { createDoc } from "../lib/db";
 import type { ActivityDoc, ActivityType, ArtisticActivity, CourseActivity } from "../lib/types";
 import { defaultArtisticActivity, defaultCourseActivity } from "../lib/defaultProgram";
 import { normalizeLiteSessions } from "../lib/courseSessions";
+import { validateForSubmission } from "../lib/validation";
+import { CourseCard } from "../components/CourseCard";
+import { ArtisticCard } from "../components/ArtisticCard";
+
+type StepId =
+  | "tipo"
+  | "contacto"
+  | "sesiones"
+  | "logistica"
+  | "contenido"
+  | "difusion"
+  | "preview"
+  | "general"
+  | "logistica_art"
+  | "difusion_art";
+
+function isBlank(x: string | undefined | null) {
+  return !x || !String(x).trim();
+}
+
+function warningForStep(kind: ActivityType, stepId: StepId, title: string, course: CourseActivity, art: ArtisticActivity): string[] {
+  if (kind === "course") {
+    switch (stepId) {
+      case "tipo": {
+        const miss: string[] = [];
+        if (isBlank(title)) miss.push("Título");
+        if (isBlank(course.typeLabel)) miss.push("Tipo (curso/taller/seminario)");
+        return miss;
+      }
+      case "contacto": {
+        const miss: string[] = [];
+        if (isBlank(course.instructor)) miss.push("Persona que imparte");
+        if (isBlank(course.organizingLab)) miss.push("Laboratorio que organiza");
+        if (isBlank(course.contactEmail)) miss.push("Correo de contacto");
+        return miss;
+      }
+      case "sesiones": {
+        const miss: string[] = [];
+        if (!course.sessionsCount || course.sessionsCount < 1) miss.push("Número de sesiones");
+        if (!course.hoursPerSession || course.hoursPerSession < 1) miss.push("Horas por sesión");
+        return miss;
+      }
+      case "logistica": {
+        const miss: string[] = [];
+        if (isBlank(course.dateAndTime)) miss.push("Fecha y horarios (texto general)");
+        if (isBlank(course.place)) miss.push("Lugar");
+        if (isBlank(course.modality)) miss.push("Modalidad");
+        return miss;
+      }
+      case "contenido": {
+        const miss: string[] = [];
+        if (isBlank(course.objective)) miss.push("Objetivo");
+        if (isBlank(course.justification)) miss.push("Justificación");
+        if (isBlank(course.syllabus)) miss.push("Temario");
+        if (isBlank(course.entryProfile)) miss.push("Perfil de ingreso");
+        if (isBlank(course.attendees)) miss.push("Número de asistentes");
+        if (isBlank(course.materials)) miss.push("Materiales solicitados");
+        return miss;
+      }
+      case "difusion": {
+        const miss: string[] = [];
+        if (isBlank(course.bio)) miss.push("Semblanza");
+        if (isBlank(course.registrationConsiderations)) miss.push("Consideraciones extra (registro)");
+        return miss;
+      }
+      default:
+        return [];
+    }
+  }
+
+  // artistic
+  switch (stepId) {
+    case "tipo": {
+      const miss: string[] = [];
+      if (isBlank(title)) miss.push("Título");
+      return miss;
+    }
+    case "general": {
+      const miss: string[] = [];
+      if (isBlank(art.participants)) miss.push("Participantes");
+      if (isBlank(art.organizingLab)) miss.push("Laboratorio que organiza");
+      if (isBlank(art.cycleName)) miss.push("Nombre del ciclo");
+      if (isBlank(art.collaboration)) miss.push("Actividad en colaboración");
+      if (isBlank(art.description)) miss.push("Descripción");
+      if (isBlank(art.modality)) miss.push("Modalidad");
+      return miss;
+    }
+    case "logistica_art": {
+      const miss: string[] = [];
+      if (isBlank(art.dateAndTime)) miss.push("Fecha y horarios");
+      if (isBlank(art.rehearsalSchedule)) miss.push("Ensayos (fecha y horarios)");
+      if (isBlank(art.setupSchedule)) miss.push("Montaje (fecha y horarios)");
+      if (isBlank(art.place)) miss.push("Lugar");
+      return miss;
+    }
+    case "difusion_art": {
+      const miss: string[] = [];
+      if (isBlank(art.bio)) miss.push("Semblanza");
+      return miss;
+    }
+    default:
+      return [];
+  }
+}
 
 export function WizardPage() {
   const nav = useNavigate();
@@ -17,159 +120,130 @@ export function WizardPage() {
   const [course, setCourse] = useState<CourseActivity>(() => ({ ...defaultCourseActivity }));
   const [art, setArt] = useState<ArtisticActivity>(() => ({ ...defaultArtisticActivity }));
 
-  // Dot-nav wizard
-  function isBlank(x: string | undefined | null) {
-    return !x || !String(x).trim();
-  }
-
-  function statusFrom(required: boolean[]): DotStatus {
-    const ok = required.filter(Boolean).length;
-    if (ok === 0) return "empty";
-    if (ok === required.length) return "ok";
-    return "partial";
-  }
-
-  const sections = useMemo(() => {
-    if (kind === "artistic") {
-      const sTipo = statusFrom([!isBlank(title)]);
-      const sGeneral = statusFrom([
-        !isBlank(art.participants),
-        !isBlank(art.organizingLab),
-        !isBlank(art.cycleName),
-        !isBlank(art.collaboration),
-        !isBlank(art.description),
-        !isBlank(art.modality),
-      ]);
-      const sLog = statusFrom([
-        !isBlank(art.dateAndTime),
-        !isBlank(art.rehearsalSchedule),
-        !isBlank(art.setupSchedule),
-        !isBlank(art.place),
-      ]);
-      const sTech = "empty" as DotStatus;
-      const sDif = statusFrom([!isBlank(art.bio)]);
-
+  const steps = useMemo((): { id: StepId; label: string }[] => {
+    if (kind === "course") {
       return [
-        { id: "tipo", label: "Tipo", status: sTipo },
-        { id: "general", label: "General", status: sGeneral },
-        { id: "logistica", label: "Logística", status: sLog },
-        { id: "difusion", label: "Difusión", status: sDif },
-        { id: "tech", label: "Técnica", status: sTech },
+        { id: "tipo", label: "Tipo" },
+        { id: "contacto", label: "Contacto" },
+        { id: "sesiones", label: "Sesiones" },
+        { id: "logistica", label: "Logística" },
+        { id: "contenido", label: "Contenido" },
+        { id: "difusion", label: "Difusión" },
+        { id: "preview", label: "Previsualizar" },
       ];
     }
 
-    const sTipo = statusFrom([!isBlank(title), !isBlank(course.typeLabel)]);
-    const sGeneral = statusFrom([
-      !isBlank(course.instructor),
-      !isBlank(course.organizingLab),
-      !isBlank(course.contactEmail),
-    ]);
-    const sSesiones = statusFrom([!!course.sessionsCount, !!course.hoursPerSession]);
-    const sLog = statusFrom([!isBlank(course.dateAndTime), !isBlank(course.place), !isBlank(course.modality)]);
-    const sContenido = statusFrom([
-      !isBlank(course.objective),
-      !isBlank(course.justification),
-      !isBlank(course.syllabus),
-      !isBlank(course.entryProfile),
-      !isBlank(course.attendees),
-      !isBlank(course.materials),
-    ]);
-    const sDif = statusFrom([!isBlank(course.bio), !isBlank(course.registrationConsiderations)]);
-
     return [
-      { id: "tipo", label: "Tipo", status: sTipo },
-      { id: "general", label: "General", status: sGeneral },
-      { id: "sesiones", label: "Sesiones", status: sSesiones },
-      { id: "logistica", label: "Logística", status: sLog },
-      { id: "contenido", label: "Contenido", status: sContenido },
-      { id: "difusion", label: "Difusión", status: sDif },
-      { id: "tech", label: "Técnica", status: "empty" as DotStatus },
+      { id: "tipo", label: "Tipo" },
+      { id: "general", label: "General" },
+      { id: "logistica_art", label: "Logística" },
+      { id: "difusion_art", label: "Difusión" },
+      { id: "preview", label: "Previsualizar" },
     ];
-  }, [kind, title, course, art]);
-
-  const [activeSection, setActiveSection] = useState(sections[0].id);
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  // (Mejora UX) cuando el usuario cambia el tipo, llévalo a la sección de tipo
-  useEffect(() => {
-    const el = sectionRefs.current.tipo;
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [kind]);
 
-  // sincroniza título con el modelo activo
+  const [stepIndex, setStepIndex] = useState(0);
+  const [warned, setWarned] = useState<Record<string, boolean>>({});
+  const [warning, setWarning] = useState<string>("");
+
+  useEffect(() => {
+    if (!auth) nav("/login");
+  }, [auth, nav]);
+
+  // keep stepIndex in bounds when kind changes
+  useEffect(() => {
+    setStepIndex(0);
+    setWarned({});
+    setWarning("");
+
+    // reset models for a clean wizard
+    if (kind === "course") setCourse({ ...defaultCourseActivity });
+    else setArt({ ...defaultArtisticActivity });
+    setTitle("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind]);
+
+  // Keep title in the model (for preview consistency)
   useEffect(() => {
     if (kind === "course") setCourse((c) => ({ ...c, title }));
     else setArt((a) => ({ ...a, title }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, kind]);
+  }, [title]);
 
-  useMemo(() => {
-    if (!auth) nav("/login");
-  }, [auth, nav]);
-
+  // Normalize sessions when counts change
   useEffect(() => {
-    // si cambian las secciones (por tipo), asegúrate de que activeSection exista
-    if (!sections.some((s) => s.id === activeSection)) {
-      setActiveSection(sections[0].id);
-    }
-  }, [sections, activeSection]);
-
-  useEffect(() => {
-    const onScroll = () => {
-      // detecta sección visible (simple: la más cercana al top)
-      const entries = sections
-        .map((s) => {
-          const el = sectionRefs.current[s.id];
-          if (!el) return null;
-          const r = el.getBoundingClientRect();
-          return { id: s.id, dist: Math.abs(r.top - 120) };
-        })
-        .filter(Boolean) as { id: string; dist: number }[];
-
-      entries.sort((a, b) => a.dist - b.dist);
-      if (entries[0] && entries[0].id !== activeSection) setActiveSection(entries[0].id);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [sections, activeSection]);
+    if (kind !== "course") return;
+    setCourse((c) => {
+      const n = Math.max(1, c.sessionsCount || 1);
+      const h = Math.max(1, c.hoursPerSession || 1);
+      const sessions = normalizeLiteSessions(c.sessions, n, h);
+      // ensure durationHours has a sane default
+      const fixed = sessions.map((s) => ({ ...s, durationHours: s.durationHours || h }));
+      return { ...c, sessionsCount: n, hoursPerSession: h, sessions: fixed };
+    });
+  }, [kind, course.sessionsCount, course.hoursPerSession]);
 
   if (!auth) return null;
 
-  function onCreate() {
-    if (!auth) return;
-    const trimmedTitle = title.trim();
+  const step = steps[stepIndex];
 
-    let doc: ActivityDoc;
-    if (kind === "artistic") {
-      doc = {
-        kind: "artistic",
-        activity: { ...art, title: trimmedTitle },
-      };
-    } else {
-      const sessionsCount = Math.max(1, course.sessionsCount || 1);
-      const hoursPerSession = Math.max(1, course.hoursPerSession || 1);
-      const sessions = normalizeLiteSessions(course.sessions, sessionsCount, hoursPerSession);
-      doc = {
+  function maybeWarnOnNext() {
+    const miss = warningForStep(kind, step.id, title, course, art);
+    if (miss.length === 0) return;
+
+    const key = `${kind}:${step.id}`;
+    if (warned[key]) return;
+
+    setWarned((w) => ({ ...w, [key]: true }));
+    setWarning(`Te faltan: ${miss.join(", ")}. Puedes continuar.`);
+    setTimeout(() => setWarning(""), 3500);
+  }
+
+  function next() {
+    maybeWarnOnNext();
+    setStepIndex((i) => Math.min(steps.length - 1, i + 1));
+  }
+
+  function prev() {
+    setWarning("");
+    setStepIndex((i) => Math.max(0, i - 1));
+  }
+
+  function makeDraftDoc(): ActivityDoc {
+    if (kind === "course") {
+      const n = Math.max(1, course.sessionsCount || 1);
+      const h = Math.max(1, course.hoursPerSession || 1);
+      const sessions = normalizeLiteSessions(course.sessions, n, h);
+      return {
         kind: "course",
-        activity: {
-          ...course,
-          title: trimmedTitle,
-          sessionsCount,
-          hoursPerSession,
-          sessions,
-        },
+        activity: { ...course, title: title.trim(), sessionsCount: n, hoursPerSession: h, sessions },
       };
     }
 
+    return {
+      kind: "artistic",
+      activity: { ...art, title: title.trim() },
+    };
+  }
+
+  const draft = makeDraftDoc();
+
+  const missingForSubmit = validateForSubmission(draft);
+
+  function createAndGoToView() {
+    if (!auth) return;
+    const doc = makeDraftDoc();
     createDoc(auth.userId, doc);
-    nav("/edit");
+    nav("/view");
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Crear nueva ficha</h1>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Wizard</h1>
+          <div className="mt-1 text-sm text-slate-600">Paso {stepIndex + 1} de {steps.length}: <b>{step.label}</b></div>
+        </div>
         <Link
           to="/"
           className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
@@ -178,248 +252,288 @@ export function WizardPage() {
         </Link>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
-        <DotNav
-          items={sections}
-          activeId={activeSection}
-          onSelect={(id) => {
-            setActiveSection(id);
-            const el = sectionRefs.current[id];
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
-        />
-
-        <div className="space-y-6">
-          <Section id="tipo" setRef={(el) => (sectionRefs.current.tipo = el)} title="Tipo">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Tipo de ficha">
-                <select
-                  className={inputCls}
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as ActivityType)}
-                >
-                  <option value="course">Taller / Curso</option>
-                  <option value="artistic">Actividad artística</option>
-                </select>
-              </Field>
-
-              <Field label="Título">
-                <input
-                  className={inputCls}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ej. Taller de Electrónica"
-                />
-              </Field>
-            </div>
-
-            {kind === "course" ? (
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Tipo (curso/taller/seminario)">
-                  <select
-                    className={inputCls}
-                    value={course.typeLabel}
-                    onChange={(e) => setCourse((c) => ({ ...c, typeLabel: e.target.value as any }))}
-                  >
-                    <option value="Taller">Taller</option>
-                    <option value="Curso">Curso</option>
-                    <option value="Seminario">Seminario</option>
-                  </select>
-                </Field>
-              </div>
-            ) : null}
-          </Section>
-
-          <Section id="general" setRef={(el) => (sectionRefs.current.general = el)} title="General">
-            {kind === "course" ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Persona que imparte">
-                  <input className={inputCls} value={course.instructor} onChange={(e) => setCourse((c) => ({ ...c, instructor: e.target.value }))} />
-                </Field>
-                <Field label="Laboratorio que organiza">
-                  <input className={inputCls} value={course.organizingLab} onChange={(e) => setCourse((c) => ({ ...c, organizingLab: e.target.value }))} />
-                </Field>
-                <Field label="Correo de contacto">
-                  <input className={inputCls} value={course.contactEmail} onChange={(e) => setCourse((c) => ({ ...c, contactEmail: e.target.value }))} />
-                </Field>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Participantes">
-                  <input className={inputCls} value={art.participants} onChange={(e) => setArt((a) => ({ ...a, participants: e.target.value }))} />
-                </Field>
-                <Field label="Laboratorio que organiza">
-                  <input className={inputCls} value={art.organizingLab} onChange={(e) => setArt((a) => ({ ...a, organizingLab: e.target.value }))} />
-                </Field>
-                <Field label="Nombre del ciclo">
-                  <input className={inputCls} value={art.cycleName} onChange={(e) => setArt((a) => ({ ...a, cycleName: e.target.value }))} />
-                </Field>
-                <Field label="Actividad en colaboración">
-                  <input className={inputCls} value={art.collaboration} onChange={(e) => setArt((a) => ({ ...a, collaboration: e.target.value }))} />
-                </Field>
-                <Field label="Descripción">
-                  <textarea className={textareaCls} rows={4} value={art.description} onChange={(e) => setArt((a) => ({ ...a, description: e.target.value }))} />
-                </Field>
-                <Field label="Modalidad">
-                  <select className={inputCls} value={art.modality} onChange={(e) => setArt((a) => ({ ...a, modality: e.target.value as any }))}>
-                    <option value="">—</option>
-                    <option value="Presencial">Presencial</option>
-                    <option value="En línea">En línea</option>
-                    <option value="Híbrida">Híbrida</option>
-                  </select>
-                </Field>
-              </div>
-            )}
-          </Section>
-
-          {kind === "course" ? (
-            <Section id="sesiones" setRef={(el) => (sectionRefs.current.sesiones = el)} title="Sesiones (obligatorio)">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Número de sesiones">
-                  <input
-                    type="number"
-                    min={1}
-                    className={inputCls}
-                    value={course.sessionsCount}
-                    onChange={(e) => setCourse((c) => ({ ...c, sessionsCount: Math.max(1, Number(e.target.value || 1)) }))}
-                  />
-                </Field>
-                <Field label="Horas por sesión">
-                  <input
-                    type="number"
-                    min={1}
-                    className={inputCls}
-                    value={course.hoursPerSession}
-                    onChange={(e) => setCourse((c) => ({ ...c, hoursPerSession: Math.max(1, Number(e.target.value || 1)) }))}
-                  />
-                </Field>
-              </div>
-              <div className="mt-3 text-sm text-slate-600">
-                En el editor podrás capturar <b>fechas</b> y <b>horarios</b> por sesión y usar “+ Agregar sesión”.
-              </div>
-            </Section>
-          ) : null}
-
-          <Section id="logistica" setRef={(el) => (sectionRefs.current.logistica = el)} title="Logística">
-            {kind === "course" ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Fecha y horarios (texto general)">
-                  <input className={inputCls} value={course.dateAndTime} onChange={(e) => setCourse((c) => ({ ...c, dateAndTime: e.target.value }))} />
-                </Field>
-                <Field label="Lugar">
-                  <input className={inputCls} value={course.place} onChange={(e) => setCourse((c) => ({ ...c, place: e.target.value }))} />
-                </Field>
-                <Field label="Modalidad">
-                  <select className={inputCls} value={course.modality} onChange={(e) => setCourse((c) => ({ ...c, modality: e.target.value as any }))}>
-                    <option value="">—</option>
-                    <option value="Presencial">Presencial</option>
-                    <option value="En línea">En línea</option>
-                    <option value="Híbrida">Híbrida</option>
-                  </select>
-                </Field>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Fecha y horarios">
-                  <input className={inputCls} value={art.dateAndTime} onChange={(e) => setArt((a) => ({ ...a, dateAndTime: e.target.value }))} />
-                </Field>
-                <Field label="Ensayos (fecha y horarios)">
-                  <input className={inputCls} value={art.rehearsalSchedule} onChange={(e) => setArt((a) => ({ ...a, rehearsalSchedule: e.target.value }))} />
-                </Field>
-                <Field label="Montaje (fecha y horarios)">
-                  <input className={inputCls} value={art.setupSchedule} onChange={(e) => setArt((a) => ({ ...a, setupSchedule: e.target.value }))} />
-                </Field>
-                <Field label="Lugar">
-                  <input className={inputCls} value={art.place} onChange={(e) => setArt((a) => ({ ...a, place: e.target.value }))} />
-                </Field>
-              </div>
-            )}
-          </Section>
-
-          {kind === "course" ? (
-            <Section id="contenido" setRef={(el) => (sectionRefs.current.contenido = el)} title="Contenido">
-              <div className="grid grid-cols-1 gap-4">
-                <Field label="Objetivo">
-                  <textarea className={textareaCls} rows={3} value={course.objective} onChange={(e) => setCourse((c) => ({ ...c, objective: e.target.value }))} />
-                </Field>
-                <Field label="Justificación">
-                  <textarea className={textareaCls} rows={3} value={course.justification} onChange={(e) => setCourse((c) => ({ ...c, justification: e.target.value }))} />
-                </Field>
-                <Field label="Temario">
-                  <textarea className={textareaCls} rows={4} value={course.syllabus} onChange={(e) => setCourse((c) => ({ ...c, syllabus: e.target.value }))} />
-                </Field>
-                <Field label="Perfil de ingreso">
-                  <textarea className={textareaCls} rows={3} value={course.entryProfile} onChange={(e) => setCourse((c) => ({ ...c, entryProfile: e.target.value }))} />
-                </Field>
-                <Field label="Número de asistentes">
-                  <textarea className={textareaCls} rows={2} value={course.attendees} onChange={(e) => setCourse((c) => ({ ...c, attendees: e.target.value }))} />
-                </Field>
-                <Field label="Materiales solicitados">
-                  <textarea className={textareaCls} rows={2} value={course.materials} onChange={(e) => setCourse((c) => ({ ...c, materials: e.target.value }))} />
-                </Field>
-              </div>
-            </Section>
-          ) : null}
-
-          <Section id="difusion" setRef={(el) => (sectionRefs.current.difusion = el)} title="Difusión">
-            {kind === "course" ? (
-              <div className="grid grid-cols-1 gap-4">
-                <Field label="Semblanza">
-                  <textarea className={textareaCls} rows={3} value={course.bio} onChange={(e) => setCourse((c) => ({ ...c, bio: e.target.value }))} />
-                </Field>
-                <Field label="Consideraciones extra (registro)">
-                  <textarea
-                    className={textareaCls}
-                    rows={3}
-                    value={course.registrationConsiderations}
-                    onChange={(e) => setCourse((c) => ({ ...c, registrationConsiderations: e.target.value }))}
-                  />
-                </Field>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                <Field label="Semblanza">
-                  <textarea className={textareaCls} rows={3} value={art.bio} onChange={(e) => setArt((a) => ({ ...a, bio: e.target.value }))} />
-                </Field>
-              </div>
-            )}
-          </Section>
-
-          <Section id="tech" setRef={(el) => (sectionRefs.current.tech = el)} title="Requerimientos técnicos">
-            <p className="text-sm text-slate-600">(Opcional en wizard) Internet, montaje, proyección/audio, etc.</p>
-          </Section>
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-            <button
-              type="button"
-              className="w-full rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-              onClick={onCreate}
-            >
-              Crear y editar
-            </button>
-          </div>
+      <div className="mt-6">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={
+              "rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-black/5 " +
+              (kind === "course" ? "bg-indigo-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50")
+            }
+            onClick={() => setKind("course")}
+          >
+            Taller / Curso
+          </button>
+          <button
+            type="button"
+            className={
+              "rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-black/5 " +
+              (kind === "artistic" ? "bg-indigo-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50")
+            }
+            onClick={() => setKind("artistic")}
+          >
+            Actividad artística
+          </button>
         </div>
       </div>
-    </div>
-  );
-}
 
-function Section({
-  id,
-  title,
-  children,
-  setRef,
-}: {
-  id: string;
-  title: string;
-  children: React.ReactNode;
-  setRef: (el: HTMLDivElement | null) => void;
-}) {
-  return (
-    <section ref={setRef} id={id} className="scroll-mt-24 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      <div className="mt-4">{children}</div>
-    </section>
+      {warning ? (
+        <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">{warning}</div>
+      ) : null}
+
+      <div className="mt-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+        {step.id === "tipo" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Título">
+              <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej. Taller de Electrónica" />
+            </Field>
+
+            {kind === "course" ? (
+              <Field label="Tipo (curso/taller/seminario)">
+                <select
+                  className={inputCls}
+                  value={course.typeLabel}
+                  onChange={(e) => setCourse((c) => ({ ...c, typeLabel: e.target.value as any }))}
+                >
+                  <option value="">—</option>
+                  <option value="Taller">Taller</option>
+                  <option value="Curso">Curso</option>
+                  <option value="Seminario">Seminario</option>
+                </select>
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
+
+        {kind === "course" && step.id === "contacto" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Persona que imparte">
+              <input className={inputCls} value={course.instructor} onChange={(e) => setCourse((c) => ({ ...c, instructor: e.target.value }))} />
+            </Field>
+            <Field label="Laboratorio que organiza">
+              <input className={inputCls} value={course.organizingLab} onChange={(e) => setCourse((c) => ({ ...c, organizingLab: e.target.value }))} />
+            </Field>
+            <Field label="Correo de contacto">
+              <input className={inputCls} value={course.contactEmail} onChange={(e) => setCourse((c) => ({ ...c, contactEmail: e.target.value }))} />
+            </Field>
+          </div>
+        ) : null}
+
+        {kind === "course" && step.id === "sesiones" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Número de sesiones">
+              <input
+                type="number"
+                min={1}
+                className={inputCls}
+                value={course.sessionsCount}
+                onChange={(e) => setCourse((c) => ({ ...c, sessionsCount: Math.max(1, Number(e.target.value || 1)) }))}
+              />
+            </Field>
+            <Field label="Horas por sesión">
+              <input
+                type="number"
+                min={1}
+                className={inputCls}
+                value={course.hoursPerSession}
+                onChange={(e) => setCourse((c) => ({ ...c, hoursPerSession: Math.max(1, Number(e.target.value || 1)) }))}
+              />
+            </Field>
+            <div className="sm:col-span-2 text-sm text-slate-600">
+              Nota: en el editor podrás capturar <b>fechas</b> y <b>horarios</b> por sesión.
+            </div>
+          </div>
+        ) : null}
+
+        {kind === "course" && step.id === "logistica" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Fecha y horarios (texto general)">
+              <input className={inputCls} value={course.dateAndTime} onChange={(e) => setCourse((c) => ({ ...c, dateAndTime: e.target.value }))} />
+            </Field>
+            <Field label="Lugar">
+              <input className={inputCls} value={course.place} onChange={(e) => setCourse((c) => ({ ...c, place: e.target.value }))} />
+            </Field>
+            <Field label="Modalidad">
+              <select
+                className={inputCls}
+                value={course.modality}
+                onChange={(e) => setCourse((c) => ({ ...c, modality: e.target.value as any }))}
+              >
+                <option value="">—</option>
+                <option value="Presencial">Presencial</option>
+                <option value="En línea">En línea</option>
+                <option value="Híbrida">Híbrida</option>
+              </select>
+            </Field>
+          </div>
+        ) : null}
+
+        {kind === "course" && step.id === "contenido" ? (
+          <div className="grid grid-cols-1 gap-4">
+            <Field label="Objetivo">
+              <textarea className={textareaCls} rows={3} value={course.objective} onChange={(e) => setCourse((c) => ({ ...c, objective: e.target.value }))} />
+            </Field>
+            <Field label="Justificación">
+              <textarea className={textareaCls} rows={3} value={course.justification} onChange={(e) => setCourse((c) => ({ ...c, justification: e.target.value }))} />
+            </Field>
+            <Field label="Temario">
+              <textarea className={textareaCls} rows={4} value={course.syllabus} onChange={(e) => setCourse((c) => ({ ...c, syllabus: e.target.value }))} />
+            </Field>
+            <Field label="Perfil de ingreso">
+              <textarea className={textareaCls} rows={3} value={course.entryProfile} onChange={(e) => setCourse((c) => ({ ...c, entryProfile: e.target.value }))} />
+            </Field>
+            <Field label="Número de asistentes">
+              <textarea className={textareaCls} rows={2} value={course.attendees} onChange={(e) => setCourse((c) => ({ ...c, attendees: e.target.value }))} />
+            </Field>
+            <Field label="Materiales solicitados">
+              <textarea className={textareaCls} rows={2} value={course.materials} onChange={(e) => setCourse((c) => ({ ...c, materials: e.target.value }))} />
+            </Field>
+          </div>
+        ) : null}
+
+        {kind === "course" && step.id === "difusion" ? (
+          <div className="grid grid-cols-1 gap-4">
+            <Field label="Semblanza">
+              <textarea className={textareaCls} rows={3} value={course.bio} onChange={(e) => setCourse((c) => ({ ...c, bio: e.target.value }))} />
+            </Field>
+            <Field label="Consideraciones extra (registro)">
+              <textarea
+                className={textareaCls}
+                rows={3}
+                value={course.registrationConsiderations}
+                onChange={(e) => setCourse((c) => ({ ...c, registrationConsiderations: e.target.value }))}
+              />
+            </Field>
+          </div>
+        ) : null}
+
+        {kind === "artistic" && step.id === "general" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Participantes">
+              <input className={inputCls} value={art.participants} onChange={(e) => setArt((a) => ({ ...a, participants: e.target.value }))} />
+            </Field>
+            <Field label="Laboratorio que organiza">
+              <input className={inputCls} value={art.organizingLab} onChange={(e) => setArt((a) => ({ ...a, organizingLab: e.target.value }))} />
+            </Field>
+            <Field label="Nombre del ciclo">
+              <input className={inputCls} value={art.cycleName} onChange={(e) => setArt((a) => ({ ...a, cycleName: e.target.value }))} />
+            </Field>
+            <Field label="Actividad en colaboración">
+              <input className={inputCls} value={art.collaboration} onChange={(e) => setArt((a) => ({ ...a, collaboration: e.target.value }))} />
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="Descripción">
+                <textarea className={textareaCls} rows={4} value={art.description} onChange={(e) => setArt((a) => ({ ...a, description: e.target.value }))} />
+              </Field>
+            </div>
+            <Field label="Modalidad">
+              <select className={inputCls} value={art.modality} onChange={(e) => setArt((a) => ({ ...a, modality: e.target.value as any }))}>
+                <option value="">—</option>
+                <option value="Presencial">Presencial</option>
+                <option value="En línea">En línea</option>
+                <option value="Híbrida">Híbrida</option>
+              </select>
+            </Field>
+          </div>
+        ) : null}
+
+        {kind === "artistic" && step.id === "logistica_art" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Fecha y horarios">
+              <input className={inputCls} value={art.dateAndTime} onChange={(e) => setArt((a) => ({ ...a, dateAndTime: e.target.value }))} />
+            </Field>
+            <Field label="Ensayos (fecha y horarios)">
+              <input className={inputCls} value={art.rehearsalSchedule} onChange={(e) => setArt((a) => ({ ...a, rehearsalSchedule: e.target.value }))} />
+            </Field>
+            <Field label="Montaje (fecha y horarios)">
+              <input className={inputCls} value={art.setupSchedule} onChange={(e) => setArt((a) => ({ ...a, setupSchedule: e.target.value }))} />
+            </Field>
+            <Field label="Lugar">
+              <input className={inputCls} value={art.place} onChange={(e) => setArt((a) => ({ ...a, place: e.target.value }))} />
+            </Field>
+          </div>
+        ) : null}
+
+        {kind === "artistic" && step.id === "difusion_art" ? (
+          <div className="grid grid-cols-1 gap-4">
+            <Field label="Semblanza">
+              <textarea className={textareaCls} rows={3} value={art.bio} onChange={(e) => setArt((a) => ({ ...a, bio: e.target.value }))} />
+            </Field>
+          </div>
+        ) : null}
+
+        {step.id === "preview" ? (
+          <div>
+            <div className={
+              "rounded-2xl px-4 py-3 text-sm ring-1 " +
+              (missingForSubmit.length === 0
+                ? "bg-emerald-50 text-emerald-900 ring-emerald-200"
+                : "bg-amber-50 text-amber-900 ring-amber-200")
+            }>
+              {missingForSubmit.length === 0 ? (
+                <div><b>Listo para enviar a validación</b> (cuando termines de editar).</div>
+              ) : (
+                <div>
+                  <b>Faltan campos obligatorios para enviar a validación:</b>
+                  <ul className="mt-2 list-disc pl-5">
+                    {missingForSubmit.map((m) => (
+                      <li key={m}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6">
+              {draft.kind === "course" ? (
+                <CourseCard activity={draft.activity} />
+              ) : draft.kind === "artistic" ? (
+                <ArtisticCard activity={draft.activity} />
+              ) : null}
+            </div>
+
+            <div className="mt-6">
+              <button
+                type="button"
+                className="w-full rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                onClick={createAndGoToView}
+              >
+                Crear ficha
+              </button>
+              <div className="mt-2 text-xs text-slate-500">
+                Te llevará a la vista de la ficha. Desde ahí podrás <b>Editar</b> o <b>Enviar a validación</b>.
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-6 flex items-center justify-between">
+        <button
+          type="button"
+          className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50 disabled:opacity-50"
+          onClick={prev}
+          disabled={stepIndex === 0}
+        >
+          Anterior
+        </button>
+
+        <div className="text-xs text-slate-500">
+          {steps.map((s, i) => (
+            <span key={s.id} className={"inline-block h-2 w-2 rounded-full mr-1 " + (i === stepIndex ? "bg-indigo-600" : "bg-slate-200")} />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+          onClick={next}
+          disabled={stepIndex >= steps.length - 1}
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -434,4 +548,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";
 const textareaCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";
-
