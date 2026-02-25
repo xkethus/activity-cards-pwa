@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import type {
   ActivityDoc,
   ArtisticActivity,
@@ -7,13 +8,17 @@ import type {
   Session,
   SessionAgendaItem,
 } from "../lib/types";
+import { exportDocJson, importDocJson } from "../lib/storage";
 import {
-  exportDocJson,
-  importDocJson,
-  loadDoc,
-  resetDoc,
-  saveDoc,
-} from "../lib/storage";
+  getActiveDocId,
+  getDocById,
+  getOrCreateFirstDoc,
+  loadDocs,
+  setActiveDocId,
+  upsertDoc,
+  type ActivityRecord,
+} from "../lib/db";
+import { loadAuth } from "../lib/auth";
 import {
   defaultArtisticActivity,
   defaultCourseActivity,
@@ -22,12 +27,51 @@ import {
 import { downloadMarkdown } from "../exports/toMarkdown";
 
 export function EditPage() {
-  const initial = useMemo(() => loadDoc(), []);
-  const [doc, setDoc] = useState<ActivityDoc>(initial);
+  const nav = useNavigate();
+  const auth = loadAuth();
+
+  const initialRec = useMemo((): ActivityRecord | null => {
+    if (!auth) return null;
+    const docs = loadDocs();
+    if (docs.length === 0) return getOrCreateFirstDoc(auth.userId);
+    const active = getActiveDocId();
+    const byId = active ? getDocById(active) : null;
+    const picked = byId ?? docs[0];
+    if (picked && picked.id !== active) setActiveDocId(picked.id);
+    return picked;
+  }, [auth]);
+
+  const [rec, setRec] = useState<ActivityRecord | null>(initialRec);
+  const [doc, setDoc] = useState<ActivityDoc>(initialRec?.doc ?? { kind: "sessions", program: defaultSessionsProgram });
   const [status, setStatus] = useState<string>("");
 
+  const canEdit = useMemo(() => {
+    if (!auth || !rec) return false;
+    if (auth.role === "ADMIN") return true;
+    if (auth.role === "DIRECTOR") return true;
+    if (auth.role === "CREATOR") return rec.ownerId === auth.userId;
+    return false;
+  }, [auth, rec]);
+
   useEffect(() => {
-    saveDoc(doc);
+    if (!auth) {
+      nav("/login");
+      return;
+    }
+  }, [auth, nav]);
+
+  useEffect(() => {
+    if (auth && rec && !canEdit) {
+      nav("/view", { replace: true });
+    }
+  }, [auth, rec, canEdit, nav]);
+
+  useEffect(() => {
+    if (!rec) return;
+    const next: ActivityRecord = { ...rec, doc, updatedAt: Date.now() };
+    setRec(next);
+    upsertDoc(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc]);
 
   async function onImport(file: File) {
@@ -56,24 +100,79 @@ export function EditPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Editar</h1>
         <div className="flex flex-wrap gap-2">
-          <a
+          <Link
             className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
-            href="/#/"
+            to="/docs"
+          >
+            Fichas
+          </Link>
+          <Link
+            className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+            to="/view"
           >
             Ver
-          </a>
-          <a
+          </Link>
+          <Link
             className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-            href="/#/print"
+            to="/print"
           >
             Exportar PDF
-          </a>
+          </Link>
         </div>
       </div>
 
       <div className="mt-3 text-sm text-slate-600">
         Guardado automático en este navegador (localStorage). Usa Exportar/Importar para compartir.
       </div>
+
+      {rec ? (
+        <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 ring-1 ring-black/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              Estado: <b>{formatStatus(rec.status)}</b>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {rec.status === "BORRADOR" ? (
+                <button
+                  type="button"
+                  className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                  onClick={() => {
+                    setRec((prev) => {
+                      if (!prev) return prev;
+                      const next: ActivityRecord = { ...prev, status: "ENVIADA", updatedAt: Date.now() };
+                      upsertDoc(next);
+                      return next;
+                    });
+                    setStatus("Enviada a validación");
+                    setTimeout(() => setStatus(""), 1500);
+                  }}
+                >
+                  Enviar a validación
+                </button>
+              ) : null}
+
+              {rec.status === "ENVIADA" ? (
+                <button
+                  type="button"
+                  className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+                  onClick={() => {
+                    setRec((prev) => {
+                      if (!prev) return prev;
+                      const next: ActivityRecord = { ...prev, status: "BORRADOR", updatedAt: Date.now() };
+                      upsertDoc(next);
+                      return next;
+                    });
+                    setStatus("Regresó a borrador");
+                    setTimeout(() => setStatus(""), 1500);
+                  }}
+                >
+                  Regresar a borrador
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {status ? (
         <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
@@ -129,8 +228,17 @@ export function EditPage() {
             <button
               className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
               onClick={() => {
-                resetDoc();
-                setDoc(loadDoc());
+                setDoc((prev) => {
+                  if (prev.kind === "sessions") return { kind: "sessions", program: defaultSessionsProgram };
+                  if (prev.kind === "artistic") return { kind: "artistic", activity: defaultArtisticActivity };
+                  return { kind: "course", activity: defaultCourseActivity };
+                });
+                setRec((prev) => {
+                  if (!prev) return prev;
+                  const next: ActivityRecord = { ...prev, status: "BORRADOR", updatedAt: Date.now() };
+                  upsertDoc(next);
+                  return next;
+                });
               }}
               type="button"
             >
@@ -666,6 +774,21 @@ function AgendaEditor({
       </button>
     </div>
   );
+}
+
+function formatStatus(s: string) {
+  switch (s) {
+    case "BORRADOR":
+      return "Borrador";
+    case "ENVIADA":
+      return "Enviada";
+    case "APROBADA":
+      return "Aprobada";
+    case "RECHAZADA":
+      return "Rechazada";
+    default:
+      return s;
+  }
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
