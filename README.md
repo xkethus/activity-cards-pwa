@@ -1,73 +1,42 @@
-# React + TypeScript + Vite
+# ActivityCards
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web app autónoma (frontend-only) para capturar un programa por sesiones y generar fichas (cards) + exportar a PDF (1 página por sesión).
 
-Currently, two official plugins are available:
+## Stack
+- React + TypeScript + Vite
+- TailwindCSS
+- React Router (HashRouter) para que funcione en `file://` sin servidor
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Rutas
+- `/#/` Vista (hero + una sesión)
+- `/#/edit` Editor (form dinámico) + export/import JSON + export Markdown
+- `/#/print` Modo impresión: 1 página por sesión (Carta). Abre `window.print()` automáticamente.
 
-## React Compiler
+## Persistencia
+- `localStorage` (por navegador)
+- Compartir: Exportar JSON / Importar JSON
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## PDF (Carta)
+En Chrome, al imprimir:
+- Destino: **Guardar como PDF**
+- Tamaño papel: **Carta (Letter)**
+- Activar: **Gráficos de fondo** (para gradientes)
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Dev
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Build (para compartir)
+```bash
+npm run build
 ```
+Salida en `dist/`.
+
+> Nota: si compartes `dist/` como zip, tus colegas pueden abrir `dist/index.html`.
+> Para navegación, usa `/#/edit` y `/#/print`.
+
+## Export a DOCX (pendiente)
+La estructura de datos ya está lista (`src/lib/types.ts`) y existe export a Markdown.
+El siguiente paso es implementar `src/exports/toDocx.ts` usando la librería `docx`.
