@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { DotNav } from "../components/DotNav";
+import { DotNav, type DotStatus } from "../components/DotNav";
 import { loadAuth } from "../lib/auth";
 import { createDoc } from "../lib/db";
-import type { ActivityDoc, ActivityType } from "../lib/types";
+import type { ActivityDoc, ActivityType, ArtisticActivity, CourseActivity } from "../lib/types";
 import { defaultArtisticActivity, defaultCourseActivity } from "../lib/defaultProgram";
 import { normalizeLiteSessions } from "../lib/courseSessions";
 
@@ -14,29 +14,78 @@ export function WizardPage() {
   const [kind, setKind] = useState<ActivityType>("course");
   const [title, setTitle] = useState("");
 
-  // Taller/Curso
-  const [typeLabel, setTypeLabel] = useState<"Curso" | "Taller" | "Seminario" | "">("Taller");
-  const [sessionsCount, setSessionsCount] = useState(8);
-  const [hoursPerSession, setHoursPerSession] = useState(3);
+  const [course, setCourse] = useState<CourseActivity>(() => ({ ...defaultCourseActivity }));
+  const [art, setArt] = useState<ArtisticActivity>(() => ({ ...defaultArtisticActivity }));
 
   // Dot-nav wizard
+  function isBlank(x: string | undefined | null) {
+    return !x || !String(x).trim();
+  }
+
+  function statusFrom(required: boolean[]): DotStatus {
+    const ok = required.filter(Boolean).length;
+    if (ok === 0) return "empty";
+    if (ok === required.length) return "ok";
+    return "partial";
+  }
+
   const sections = useMemo(() => {
     if (kind === "artistic") {
+      const sTipo = statusFrom([!isBlank(title)]);
+      const sGeneral = statusFrom([
+        !isBlank(art.participants),
+        !isBlank(art.organizingLab),
+        !isBlank(art.cycleName),
+        !isBlank(art.collaboration),
+        !isBlank(art.description),
+        !isBlank(art.modality),
+      ]);
+      const sLog = statusFrom([
+        !isBlank(art.dateAndTime),
+        !isBlank(art.rehearsalSchedule),
+        !isBlank(art.setupSchedule),
+        !isBlank(art.place),
+      ]);
+      const sTech = "empty" as DotStatus;
+      const sDif = statusFrom([!isBlank(art.bio)]);
+
       return [
-        { id: "tipo", label: "Tipo" },
-        { id: "general", label: "General" },
-        { id: "logistica", label: "Logística" },
-        { id: "tech", label: "Técnica" },
+        { id: "tipo", label: "Tipo", status: sTipo },
+        { id: "general", label: "General", status: sGeneral },
+        { id: "logistica", label: "Logística", status: sLog },
+        { id: "difusion", label: "Difusión", status: sDif },
+        { id: "tech", label: "Técnica", status: sTech },
       ];
     }
+
+    const sTipo = statusFrom([!isBlank(title), !isBlank(course.typeLabel)]);
+    const sGeneral = statusFrom([
+      !isBlank(course.instructor),
+      !isBlank(course.organizingLab),
+      !isBlank(course.contactEmail),
+    ]);
+    const sSesiones = statusFrom([!!course.sessionsCount, !!course.hoursPerSession]);
+    const sLog = statusFrom([!isBlank(course.dateAndTime), !isBlank(course.place), !isBlank(course.modality)]);
+    const sContenido = statusFrom([
+      !isBlank(course.objective),
+      !isBlank(course.justification),
+      !isBlank(course.syllabus),
+      !isBlank(course.entryProfile),
+      !isBlank(course.attendees),
+      !isBlank(course.materials),
+    ]);
+    const sDif = statusFrom([!isBlank(course.bio), !isBlank(course.registrationConsiderations)]);
+
     return [
-      { id: "tipo", label: "Tipo" },
-      { id: "general", label: "General" },
-      { id: "sesiones", label: "Sesiones" },
-      { id: "logistica", label: "Logística" },
-      { id: "tech", label: "Técnica" },
+      { id: "tipo", label: "Tipo", status: sTipo },
+      { id: "general", label: "General", status: sGeneral },
+      { id: "sesiones", label: "Sesiones", status: sSesiones },
+      { id: "logistica", label: "Logística", status: sLog },
+      { id: "contenido", label: "Contenido", status: sContenido },
+      { id: "difusion", label: "Difusión", status: sDif },
+      { id: "tech", label: "Técnica", status: "empty" as DotStatus },
     ];
-  }, [kind]);
+  }, [kind, title, course, art]);
 
   const [activeSection, setActiveSection] = useState(sections[0].id);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -46,6 +95,13 @@ export function WizardPage() {
     const el = sectionRefs.current.tipo;
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [kind]);
+
+  // sincroniza título con el modelo activo
+  useEffect(() => {
+    if (kind === "course") setCourse((c) => ({ ...c, title }));
+    else setArt((a) => ({ ...a, title }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, kind]);
 
   useMemo(() => {
     if (!auth) nav("/login");
@@ -88,18 +144,19 @@ export function WizardPage() {
     if (kind === "artistic") {
       doc = {
         kind: "artistic",
-        activity: { ...defaultArtisticActivity, title: trimmedTitle },
+        activity: { ...art, title: trimmedTitle },
       };
     } else {
-      const sessions = normalizeLiteSessions([], Math.max(1, sessionsCount), Math.max(1, hoursPerSession));
+      const sessionsCount = Math.max(1, course.sessionsCount || 1);
+      const hoursPerSession = Math.max(1, course.hoursPerSession || 1);
+      const sessions = normalizeLiteSessions(course.sessions, sessionsCount, hoursPerSession);
       doc = {
         kind: "course",
         activity: {
-          ...defaultCourseActivity,
+          ...course,
           title: trimmedTitle,
-          typeLabel,
-          sessionsCount: Math.max(1, sessionsCount),
-          hoursPerSession: Math.max(1, hoursPerSession),
+          sessionsCount,
+          hoursPerSession,
           sessions,
         },
       };
@@ -159,7 +216,11 @@ export function WizardPage() {
             {kind === "course" ? (
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Tipo (curso/taller/seminario)">
-                  <select className={inputCls} value={typeLabel} onChange={(e) => setTypeLabel(e.target.value as any)}>
+                  <select
+                    className={inputCls}
+                    value={course.typeLabel}
+                    onChange={(e) => setCourse((c) => ({ ...c, typeLabel: e.target.value as any }))}
+                  >
                     <option value="Taller">Taller</option>
                     <option value="Curso">Curso</option>
                     <option value="Seminario">Seminario</option>
@@ -170,9 +231,45 @@ export function WizardPage() {
           </Section>
 
           <Section id="general" setRef={(el) => (sectionRefs.current.general = el)} title="General">
-            <p className="text-sm text-slate-600">
-              Tip: en el wizard solo capturamos lo esencial. El resto lo completas en el editor.
-            </p>
+            {kind === "course" ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Persona que imparte">
+                  <input className={inputCls} value={course.instructor} onChange={(e) => setCourse((c) => ({ ...c, instructor: e.target.value }))} />
+                </Field>
+                <Field label="Laboratorio que organiza">
+                  <input className={inputCls} value={course.organizingLab} onChange={(e) => setCourse((c) => ({ ...c, organizingLab: e.target.value }))} />
+                </Field>
+                <Field label="Correo de contacto">
+                  <input className={inputCls} value={course.contactEmail} onChange={(e) => setCourse((c) => ({ ...c, contactEmail: e.target.value }))} />
+                </Field>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Participantes">
+                  <input className={inputCls} value={art.participants} onChange={(e) => setArt((a) => ({ ...a, participants: e.target.value }))} />
+                </Field>
+                <Field label="Laboratorio que organiza">
+                  <input className={inputCls} value={art.organizingLab} onChange={(e) => setArt((a) => ({ ...a, organizingLab: e.target.value }))} />
+                </Field>
+                <Field label="Nombre del ciclo">
+                  <input className={inputCls} value={art.cycleName} onChange={(e) => setArt((a) => ({ ...a, cycleName: e.target.value }))} />
+                </Field>
+                <Field label="Actividad en colaboración">
+                  <input className={inputCls} value={art.collaboration} onChange={(e) => setArt((a) => ({ ...a, collaboration: e.target.value }))} />
+                </Field>
+                <Field label="Descripción">
+                  <textarea className={textareaCls} rows={4} value={art.description} onChange={(e) => setArt((a) => ({ ...a, description: e.target.value }))} />
+                </Field>
+                <Field label="Modalidad">
+                  <select className={inputCls} value={art.modality} onChange={(e) => setArt((a) => ({ ...a, modality: e.target.value as any }))}>
+                    <option value="">—</option>
+                    <option value="Presencial">Presencial</option>
+                    <option value="En línea">En línea</option>
+                    <option value="Híbrida">Híbrida</option>
+                  </select>
+                </Field>
+              </div>
+            )}
           </Section>
 
           {kind === "course" ? (
@@ -183,8 +280,8 @@ export function WizardPage() {
                     type="number"
                     min={1}
                     className={inputCls}
-                    value={sessionsCount}
-                    onChange={(e) => setSessionsCount(Math.max(1, Number(e.target.value || 1)))}
+                    value={course.sessionsCount}
+                    onChange={(e) => setCourse((c) => ({ ...c, sessionsCount: Math.max(1, Number(e.target.value || 1)) }))}
                   />
                 </Field>
                 <Field label="Horas por sesión">
@@ -192,23 +289,104 @@ export function WizardPage() {
                     type="number"
                     min={1}
                     className={inputCls}
-                    value={hoursPerSession}
-                    onChange={(e) => setHoursPerSession(Math.max(1, Number(e.target.value || 1)))}
+                    value={course.hoursPerSession}
+                    onChange={(e) => setCourse((c) => ({ ...c, hoursPerSession: Math.max(1, Number(e.target.value || 1)) }))}
                   />
                 </Field>
               </div>
               <div className="mt-3 text-sm text-slate-600">
-                Luego podrás capturar <b>fechas</b> y <b>horarios</b> por sesión y usar “+ Agregar sesión” si hace falta.
+                En el editor podrás capturar <b>fechas</b> y <b>horarios</b> por sesión y usar “+ Agregar sesión”.
               </div>
             </Section>
           ) : null}
 
           <Section id="logistica" setRef={(el) => (sectionRefs.current.logistica = el)} title="Logística">
-            <p className="text-sm text-slate-600">Lugar, modalidad, fechas generales (si aplica).</p>
+            {kind === "course" ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Fecha y horarios (texto general)">
+                  <input className={inputCls} value={course.dateAndTime} onChange={(e) => setCourse((c) => ({ ...c, dateAndTime: e.target.value }))} />
+                </Field>
+                <Field label="Lugar">
+                  <input className={inputCls} value={course.place} onChange={(e) => setCourse((c) => ({ ...c, place: e.target.value }))} />
+                </Field>
+                <Field label="Modalidad">
+                  <select className={inputCls} value={course.modality} onChange={(e) => setCourse((c) => ({ ...c, modality: e.target.value as any }))}>
+                    <option value="">—</option>
+                    <option value="Presencial">Presencial</option>
+                    <option value="En línea">En línea</option>
+                    <option value="Híbrida">Híbrida</option>
+                  </select>
+                </Field>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Fecha y horarios">
+                  <input className={inputCls} value={art.dateAndTime} onChange={(e) => setArt((a) => ({ ...a, dateAndTime: e.target.value }))} />
+                </Field>
+                <Field label="Ensayos (fecha y horarios)">
+                  <input className={inputCls} value={art.rehearsalSchedule} onChange={(e) => setArt((a) => ({ ...a, rehearsalSchedule: e.target.value }))} />
+                </Field>
+                <Field label="Montaje (fecha y horarios)">
+                  <input className={inputCls} value={art.setupSchedule} onChange={(e) => setArt((a) => ({ ...a, setupSchedule: e.target.value }))} />
+                </Field>
+                <Field label="Lugar">
+                  <input className={inputCls} value={art.place} onChange={(e) => setArt((a) => ({ ...a, place: e.target.value }))} />
+                </Field>
+              </div>
+            )}
+          </Section>
+
+          {kind === "course" ? (
+            <Section id="contenido" setRef={(el) => (sectionRefs.current.contenido = el)} title="Contenido">
+              <div className="grid grid-cols-1 gap-4">
+                <Field label="Objetivo">
+                  <textarea className={textareaCls} rows={3} value={course.objective} onChange={(e) => setCourse((c) => ({ ...c, objective: e.target.value }))} />
+                </Field>
+                <Field label="Justificación">
+                  <textarea className={textareaCls} rows={3} value={course.justification} onChange={(e) => setCourse((c) => ({ ...c, justification: e.target.value }))} />
+                </Field>
+                <Field label="Temario">
+                  <textarea className={textareaCls} rows={4} value={course.syllabus} onChange={(e) => setCourse((c) => ({ ...c, syllabus: e.target.value }))} />
+                </Field>
+                <Field label="Perfil de ingreso">
+                  <textarea className={textareaCls} rows={3} value={course.entryProfile} onChange={(e) => setCourse((c) => ({ ...c, entryProfile: e.target.value }))} />
+                </Field>
+                <Field label="Número de asistentes">
+                  <textarea className={textareaCls} rows={2} value={course.attendees} onChange={(e) => setCourse((c) => ({ ...c, attendees: e.target.value }))} />
+                </Field>
+                <Field label="Materiales solicitados">
+                  <textarea className={textareaCls} rows={2} value={course.materials} onChange={(e) => setCourse((c) => ({ ...c, materials: e.target.value }))} />
+                </Field>
+              </div>
+            </Section>
+          ) : null}
+
+          <Section id="difusion" setRef={(el) => (sectionRefs.current.difusion = el)} title="Difusión">
+            {kind === "course" ? (
+              <div className="grid grid-cols-1 gap-4">
+                <Field label="Semblanza">
+                  <textarea className={textareaCls} rows={3} value={course.bio} onChange={(e) => setCourse((c) => ({ ...c, bio: e.target.value }))} />
+                </Field>
+                <Field label="Consideraciones extra (registro)">
+                  <textarea
+                    className={textareaCls}
+                    rows={3}
+                    value={course.registrationConsiderations}
+                    onChange={(e) => setCourse((c) => ({ ...c, registrationConsiderations: e.target.value }))}
+                  />
+                </Field>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                <Field label="Semblanza">
+                  <textarea className={textareaCls} rows={3} value={art.bio} onChange={(e) => setArt((a) => ({ ...a, bio: e.target.value }))} />
+                </Field>
+              </div>
+            )}
           </Section>
 
           <Section id="tech" setRef={(el) => (sectionRefs.current.tech = el)} title="Requerimientos técnicos">
-            <p className="text-sm text-slate-600">Internet, montaje, proyección/audio, etc.</p>
+            <p className="text-sm text-slate-600">(Opcional en wizard) Internet, montaje, proyección/audio, etc.</p>
           </Section>
 
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
@@ -255,4 +433,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";
+const textareaCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";
 

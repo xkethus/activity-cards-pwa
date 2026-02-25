@@ -1,11 +1,13 @@
 import { motion } from "framer-motion";
 
+export type DotStatus = "empty" | "partial" | "ok";
+
 export function DotNav({
   items,
   activeId,
   onSelect,
 }: {
-  items: { id: string; label: string }[];
+  items: { id: string; label: string; status?: DotStatus }[];
   activeId: string;
   onSelect: (id: string) => void;
 }) {
@@ -30,6 +32,13 @@ export function DotNav({
         <div className="relative flex flex-col gap-1">
           {items.map((it) => {
             const active = it.id === activeId;
+            const status = it.status ?? "empty";
+            const dotCls =
+              status === "ok"
+                ? "bg-emerald-500"
+                : status === "partial"
+                  ? "bg-amber-400"
+                  : "bg-slate-200 group-hover:bg-slate-300";
             return (
               <button
                 key={it.id}
@@ -39,10 +48,7 @@ export function DotNav({
                 aria-current={active ? "step" : undefined}
               >
                 <motion.span
-                  className={
-                    "inline-block h-3 w-3 rounded-full ring-1 ring-black/10 " +
-                    (active ? "bg-indigo-600" : "bg-slate-200 group-hover:bg-slate-300")
-                  }
+                  className={"inline-block h-3 w-3 rounded-full ring-1 ring-black/10 " + (active ? "bg-indigo-600" : dotCls)}
                   animate={{ scale: active ? 1.25 : 1 }}
                   transition={{ type: "spring", stiffness: 600, damping: 35 }}
                 />
