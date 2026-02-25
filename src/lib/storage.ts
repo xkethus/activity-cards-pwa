@@ -1,45 +1,63 @@
-import type { Program } from "./types";
-import { defaultProgram } from "./defaultProgram";
+import type { ActivityDoc, Program } from "./types";
+import { defaultDoc } from "./defaultProgram";
 
-const KEY = "activitycards.program.v1";
+const KEY = "activitycards.doc.v1";
 
-export function loadProgram(): Program {
+function looksLikeLegacyProgram(x: unknown): x is Program {
+  const p = x as any;
+  return !!p && typeof p === "object" && typeof p.title === "string" && Array.isArray(p.sessions);
+}
+
+export function loadDoc(): ActivityDoc {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultProgram;
-    const parsed = JSON.parse(raw) as Program;
-    if (!parsed?.title || !Array.isArray(parsed.sessions)) return defaultProgram;
-    return parsed;
+    if (!raw) return defaultDoc;
+    const parsed = JSON.parse(raw) as ActivityDoc;
+
+    // New format
+    if (parsed && typeof parsed === "object" && "kind" in parsed) {
+      const k = (parsed as any).kind;
+      if (k === "sessions" && (parsed as any).program) return parsed as ActivityDoc;
+      if (k === "artistic" && (parsed as any).activity) return parsed as ActivityDoc;
+      if (k === "course" && (parsed as any).activity) return parsed as ActivityDoc;
+    }
+
+    // Legacy fallback (stored a Program directly)
+    if (looksLikeLegacyProgram(parsed)) {
+      return { kind: "sessions", program: parsed };
+    }
+
+    return defaultDoc;
   } catch {
-    return defaultProgram;
+    return defaultDoc;
   }
 }
 
-export function saveProgram(program: Program) {
-  localStorage.setItem(KEY, JSON.stringify(program));
+export function saveDoc(doc: ActivityDoc) {
+  localStorage.setItem(KEY, JSON.stringify(doc));
 }
 
-export function resetProgram() {
+export function resetDoc() {
   localStorage.removeItem(KEY);
 }
 
-export function exportProgramJson(program: Program) {
-  const blob = new Blob([JSON.stringify(program, null, 2)], { type: "application/json" });
+export function exportDocJson(doc: ActivityDoc) {
+  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "activitycards.program.json";
+  a.download = "activitycards.doc.json";
   a.click();
   URL.revokeObjectURL(url);
 }
 
-export function importProgramJson(file: File): Promise<Program> {
+export function importDocJson(file: File): Promise<ActivityDoc> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result)) as Program;
-        if (!parsed?.title || !Array.isArray(parsed.sessions)) throw new Error("Invalid JSON");
+        const parsed = JSON.parse(String(reader.result)) as ActivityDoc;
+        if (!parsed || typeof parsed !== "object" || !("kind" in parsed)) throw new Error("Invalid JSON");
         resolve(parsed);
       } catch (e) {
         reject(e);

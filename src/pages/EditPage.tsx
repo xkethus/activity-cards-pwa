@@ -1,62 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Program, Session, SessionAgendaItem } from "../lib/types";
+import type {
+  ActivityDoc,
+  ArtisticActivity,
+  CourseActivity,
+  Program,
+  Session,
+  SessionAgendaItem,
+} from "../lib/types";
 import {
-  exportProgramJson,
-  importProgramJson,
-  loadProgram,
-  resetProgram,
-  saveProgram,
+  exportDocJson,
+  importDocJson,
+  loadDoc,
+  resetDoc,
+  saveDoc,
 } from "../lib/storage";
+import {
+  defaultArtisticActivity,
+  defaultCourseActivity,
+  defaultSessionsProgram,
+} from "../lib/defaultProgram";
 import { downloadMarkdown } from "../exports/toMarkdown";
 
 export function EditPage() {
-  const initial = useMemo(() => loadProgram(), []);
-  const [program, setProgram] = useState<Program>(initial);
+  const initial = useMemo(() => loadDoc(), []);
+  const [doc, setDoc] = useState<ActivityDoc>(initial);
   const [status, setStatus] = useState<string>("");
 
   useEffect(() => {
-    saveProgram(program);
-  }, [program]);
-
-  function updateSession(index: number, patch: Partial<Session>) {
-    setProgram((p) => ({
-      ...p,
-      sessions: p.sessions.map((s) => (s.index === index ? { ...s, ...patch } : s)),
-    }));
-  }
-
-  function ensureSessionCount(n: number) {
-    setProgram((p) => {
-      const sessions = p.sessions.slice().sort((a, b) => a.index - b.index);
-      const existing = new Map(sessions.map((s) => [s.index, s] as const));
-      const next: Session[] = [];
-      for (let i = 1; i <= n; i++) {
-        const s = existing.get(i);
-        next.push(
-          s ?? {
-            index: i,
-            title: `Sesión ${i}`,
-            dateText: "",
-            timeText: "",
-            learningObjectives: [""],
-            agenda: [{ time: "", title: "", durationMin: 0, notes: "" }],
-            materials: [""],
-          }
-        );
-      }
-      const hoursPerSession = p.metrics.hoursPerSession;
-      return {
-        ...p,
-        metrics: { ...p.metrics, sessions: n, totalHours: n * hoursPerSession },
-        sessions: next,
-      };
-    });
-  }
+    saveDoc(doc);
+  }, [doc]);
 
   async function onImport(file: File) {
     try {
-      const p = await importProgramJson(file);
-      setProgram(p);
+      const d = await importDocJson(file);
+      setDoc(d);
       setStatus("Importado OK");
       setTimeout(() => setStatus(""), 1500);
     } catch {
@@ -65,10 +42,19 @@ export function EditPage() {
     }
   }
 
+  function setKind(kind: ActivityDoc["kind"]) {
+    setDoc((prev) => {
+      if (prev.kind === kind) return prev;
+      if (kind === "sessions") return { kind, program: defaultSessionsProgram };
+      if (kind === "artistic") return { kind, activity: defaultArtisticActivity };
+      return { kind, activity: defaultCourseActivity };
+    });
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Editar programa</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Editar</h1>
         <div className="flex flex-wrap gap-2">
           <a
             className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
@@ -96,69 +82,23 @@ export function EditPage() {
       ) : null}
 
       <div className="mt-8 grid grid-cols-1 gap-6">
-        <Card title="Programa">
-          <Field label="Título">
-            <input
+        <Card title="Tipo de ficha">
+          <Field label="Tipo">
+            <select
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-              value={program.title}
-              onChange={(e) => setProgram({ ...program, title: e.target.value })}
-            />
+              value={doc.kind}
+              onChange={(e) => setKind(e.target.value as ActivityDoc["kind"])}
+            >
+              <option value="sessions">Programa por sesiones</option>
+              <option value="course">Cursos / talleres / seminarios</option>
+              <option value="artistic">Actividades artísticas</option>
+            </select>
           </Field>
-          <Field label="Subtítulo (opcional)">
-            <input
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-              value={program.subtitle ?? ""}
-              onChange={(e) => setProgram({ ...program, subtitle: e.target.value || undefined })}
-            />
-          </Field>
-          <Field label="Descripción">
-            <textarea
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-              rows={4}
-              value={program.description}
-              onChange={(e) => setProgram({ ...program, description: e.target.value })}
-            />
-          </Field>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Sesiones">
-              <input
-                type="number"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-                value={program.metrics.sessions}
-                min={1}
-                onChange={(e) => ensureSessionCount(Math.max(1, Number(e.target.value || 1)))}
-              />
-            </Field>
-            <Field label="Horas por sesión">
-              <input
-                type="number"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-                value={program.metrics.hoursPerSession}
-                min={1}
-                onChange={(e) => {
-                  const h = Math.max(1, Number(e.target.value || 1));
-                  setProgram((p) => ({
-                    ...p,
-                    metrics: { ...p.metrics, hoursPerSession: h, totalHours: h * p.metrics.sessions },
-                  }));
-                }}
-              />
-            </Field>
-            <Field label="Total horas">
-              <input
-                type="number"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-                value={program.metrics.totalHours}
-                readOnly
-              />
-            </Field>
-          </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
-              onClick={() => exportProgramJson(program)}
+              onClick={() => exportDocJson(doc)}
               type="button"
             >
               Exportar JSON
@@ -180,7 +120,7 @@ export function EditPage() {
 
             <button
               className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
-              onClick={() => downloadMarkdown(program)}
+              onClick={() => downloadMarkdown(doc)}
               type="button"
             >
               Descargar Markdown
@@ -189,8 +129,8 @@ export function EditPage() {
             <button
               className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
               onClick={() => {
-                resetProgram();
-                setProgram(loadProgram());
+                resetDoc();
+                setDoc(loadDoc());
               }}
               type="button"
             >
@@ -199,30 +139,378 @@ export function EditPage() {
           </div>
         </Card>
 
-        <Card title="Sesiones">
-          <div className="space-y-8">
-            {program.sessions
-              .slice()
-              .sort((a, b) => a.index - b.index)
-              .map((s) => (
-                <SessionEditor
-                  key={s.index}
-                  total={program.metrics.sessions}
-                  session={s}
-                  onChange={(patch) => updateSession(s.index, patch)}
-                />
-              ))}
-          </div>
-        </Card>
+        {doc.kind === "sessions" ? (
+          <SessionsEditor doc={doc} onChange={setDoc} />
+        ) : doc.kind === "artistic" ? (
+          <ArtisticEditor activity={doc.activity} onChange={(a) => setDoc({ kind: "artistic", activity: a })} />
+        ) : (
+          <CourseEditor activity={doc.activity} onChange={(a) => setDoc({ kind: "course", activity: a })} />
+        )}
 
-        <Card title="DOC / Word (preparado)">
+        <Card title="DOC / Word (viable)">
           <p className="text-sm text-slate-600">
-            Ya tenemos el <b>schema</b> (JSON) + export a Markdown. El siguiente paso para .docx es implementar un export
-            con la librería <code className="rounded bg-slate-100 px-1 py-0.5">docx</code>.
+            Viable: exportar a <b>texto/Markdown</b> (ya) y a <b>.docx</b> con una librería (pendiente).
+            Para importar desde Word, lo más fiable es convertir a texto estructurado (headings/listas) y hacer un mapeo.
           </p>
         </Card>
       </div>
     </div>
+  );
+}
+
+function SessionsEditor({
+  doc,
+  onChange,
+}: {
+  doc: { kind: "sessions"; program: Program };
+  onChange: (d: ActivityDoc) => void;
+}) {
+  const program = doc.program;
+
+  function setProgram(patch: Partial<Program>) {
+    onChange({ kind: "sessions", program: { ...program, ...patch } });
+  }
+
+  function updateSession(index: number, patch: Partial<Session>) {
+    setProgram({
+      sessions: program.sessions.map((s) => (s.index === index ? { ...s, ...patch } : s)),
+    });
+  }
+
+  function ensureSessionCount(n: number) {
+    const sessions = program.sessions.slice().sort((a, b) => a.index - b.index);
+    const existing = new Map(sessions.map((s) => [s.index, s] as const));
+    const next: Session[] = [];
+    for (let i = 1; i <= n; i++) {
+      const s = existing.get(i);
+      next.push(
+        s ?? {
+          index: i,
+          title: `Sesión ${i}`,
+          dateText: "",
+          timeText: "",
+          learningObjectives: [""],
+          agenda: [{ time: "", title: "", durationMin: 0, notes: "" }],
+          materials: [""],
+        }
+      );
+    }
+    const hoursPerSession = program.metrics.hoursPerSession;
+    setProgram({
+      metrics: { ...program.metrics, sessions: n, totalHours: n * hoursPerSession },
+      sessions: next,
+    });
+  }
+
+  return (
+    <>
+      <Card title="Programa">
+        <Field label="Título">
+          <input
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            value={program.title}
+            onChange={(e) => setProgram({ title: e.target.value })}
+          />
+        </Field>
+        <Field label="Subtítulo (opcional)">
+          <input
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            value={program.subtitle ?? ""}
+            onChange={(e) => setProgram({ subtitle: e.target.value || undefined })}
+          />
+        </Field>
+        <Field label="Descripción">
+          <textarea
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            rows={4}
+            value={program.description}
+            onChange={(e) => setProgram({ description: e.target.value })}
+          />
+        </Field>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="Sesiones">
+            <input
+              type="number"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+              value={program.metrics.sessions}
+              min={1}
+              onChange={(e) => ensureSessionCount(Math.max(1, Number(e.target.value || 1)))}
+            />
+          </Field>
+          <Field label="Horas por sesión">
+            <input
+              type="number"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+              value={program.metrics.hoursPerSession}
+              min={1}
+              onChange={(e) => {
+                const h = Math.max(1, Number(e.target.value || 1));
+                setProgram({
+                  metrics: { ...program.metrics, hoursPerSession: h, totalHours: h * program.metrics.sessions },
+                });
+              }}
+            />
+          </Field>
+          <Field label="Total horas">
+            <input
+              type="number"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+              value={program.metrics.totalHours}
+              readOnly
+            />
+          </Field>
+        </div>
+      </Card>
+
+      <Card title="Sesiones">
+        <div className="space-y-8">
+          {program.sessions
+            .slice()
+            .sort((a, b) => a.index - b.index)
+            .map((s) => (
+              <SessionEditor
+                key={s.index}
+                total={program.metrics.sessions}
+                session={s}
+                onChange={(patch) => updateSession(s.index, patch)}
+              />
+            ))}
+        </div>
+      </Card>
+    </>
+  );
+}
+
+function ArtisticEditor({
+  activity,
+  onChange,
+}: {
+  activity: ArtisticActivity;
+  onChange: (a: ArtisticActivity) => void;
+}) {
+  return (
+    <Card title="Actividad artística">
+      <Field label="Título">
+        <input className={inputCls} value={activity.title} onChange={(e) => onChange({ ...activity, title: e.target.value })} />
+      </Field>
+      <Field label="Participantes">
+        <input className={inputCls} value={activity.participants} onChange={(e) => onChange({ ...activity, participants: e.target.value })} />
+      </Field>
+      <Field label="Laboratorio que organiza">
+        <input className={inputCls} value={activity.organizingLab} onChange={(e) => onChange({ ...activity, organizingLab: e.target.value })} />
+      </Field>
+      <Field label="Nombre del ciclo">
+        <input className={inputCls} value={activity.cycleName} onChange={(e) => onChange({ ...activity, cycleName: e.target.value })} />
+      </Field>
+      <Field label="Actividad en colaboración">
+        <input className={inputCls} value={activity.collaboration} onChange={(e) => onChange({ ...activity, collaboration: e.target.value })} />
+      </Field>
+      <Field label="Descripción">
+        <textarea className={textareaCls} rows={4} value={activity.description} onChange={(e) => onChange({ ...activity, description: e.target.value })} />
+      </Field>
+      <Field label="Tipo de actividad (modalidad)">
+        <select className={inputCls} value={activity.modality} onChange={(e) => onChange({ ...activity, modality: e.target.value as any })}>
+          <option value="">—</option>
+          <option value="Presencial">Presencial</option>
+          <option value="En línea">En línea</option>
+          <option value="Híbrida">Híbrida</option>
+        </select>
+      </Field>
+      <Field label="Fecha y horarios">
+        <input className={inputCls} value={activity.dateAndTime} onChange={(e) => onChange({ ...activity, dateAndTime: e.target.value })} />
+      </Field>
+      <Field label="Ensayos (fecha y horarios)">
+        <input className={inputCls} value={activity.rehearsalSchedule} onChange={(e) => onChange({ ...activity, rehearsalSchedule: e.target.value })} />
+      </Field>
+      <Field label="Montaje (fecha y horarios)">
+        <input className={inputCls} value={activity.setupSchedule} onChange={(e) => onChange({ ...activity, setupSchedule: e.target.value })} />
+      </Field>
+      <Field label="Lugar">
+        <input className={inputCls} value={activity.place} onChange={(e) => onChange({ ...activity, place: e.target.value })} />
+      </Field>
+      <Field label="Particularidades">
+        <textarea className={textareaCls} rows={3} value={activity.particularities} onChange={(e) => onChange({ ...activity, particularities: e.target.value })} />
+      </Field>
+      <Field label="Consideraciones extra (registro)">
+        <textarea className={textareaCls} rows={3} value={activity.registrationConsiderations} onChange={(e) => onChange({ ...activity, registrationConsiderations: e.target.value })} />
+      </Field>
+      <Field label="Semblanza">
+        <textarea className={textareaCls} rows={3} value={activity.bio} onChange={(e) => onChange({ ...activity, bio: e.target.value })} />
+      </Field>
+      <Field label="Líneas fuerza">
+        <textarea className={textareaCls} rows={3} value={activity.promoLines} onChange={(e) => onChange({ ...activity, promoLines: e.target.value })} />
+      </Field>
+      <Field label="Recursos para atención al público">
+        <textarea className={textareaCls} rows={3} value={activity.audienceResources} onChange={(e) => onChange({ ...activity, audienceResources: e.target.value })} />
+      </Field>
+      <Field label="Palabras clave">
+        <input className={inputCls} value={activity.keywords} onChange={(e) => onChange({ ...activity, keywords: e.target.value })} />
+      </Field>
+
+      <div className="mt-6 rounded-2xl bg-slate-50 p-4 ring-1 ring-black/5">
+        <div className="text-sm font-semibold text-slate-900">Requerimientos técnicos</div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {([
+            ["Internet", "internet"],
+            ["Montaje", "setup"],
+            ["Ensayos", "rehearsal"],
+            ["Transmisión", "broadcast"],
+            ["Proyección / Audio", "projectionAudio"],
+            ["Otros", "other"],
+          ] as const).map(([label, key]) => (
+            <Field key={key} label={label}>
+              <input
+                className={inputCls}
+                value={(activity.tech as any)[key]}
+                onChange={(e) => onChange({ ...activity, tech: { ...activity.tech, [key]: e.target.value } })}
+              />
+            </Field>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <Field label="Notas internas (no aparecen en la ficha)">
+          <textarea className={textareaCls} rows={4} value={activity.internalNotes ?? ""} onChange={(e) => onChange({ ...activity, internalNotes: e.target.value })} />
+        </Field>
+      </div>
+    </Card>
+  );
+}
+
+function CourseEditor({
+  activity,
+  onChange,
+}: {
+  activity: CourseActivity;
+  onChange: (a: CourseActivity) => void;
+}) {
+  return (
+    <Card title="Curso / Taller / Seminario">
+      <Field label="Título">
+        <input className={inputCls} value={activity.title} onChange={(e) => onChange({ ...activity, title: e.target.value })} />
+      </Field>
+      <Field label="Tipo (curso/taller/seminario)">
+        <select className={inputCls} value={activity.typeLabel} onChange={(e) => onChange({ ...activity, typeLabel: e.target.value as any })}>
+          <option value="">—</option>
+          <option value="Curso">Curso</option>
+          <option value="Taller">Taller</option>
+          <option value="Seminario">Seminario</option>
+        </select>
+      </Field>
+      <Field label="Persona que imparte">
+        <input className={inputCls} value={activity.instructor} onChange={(e) => onChange({ ...activity, instructor: e.target.value })} />
+      </Field>
+      <Field label="Laboratorio que organiza">
+        <input className={inputCls} value={activity.organizingLab} onChange={(e) => onChange({ ...activity, organizingLab: e.target.value })} />
+      </Field>
+      <Field label="Correo de contacto">
+        <input className={inputCls} value={activity.contactEmail} onChange={(e) => onChange({ ...activity, contactEmail: e.target.value })} />
+      </Field>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Duración (horas)">
+          <input
+            type="number"
+            className={inputCls}
+            value={activity.durationHours}
+            min={1}
+            onChange={(e) => onChange({ ...activity, durationHours: Math.max(1, Number(e.target.value || 1)) })}
+          />
+        </Field>
+        <Field label="Modalidad">
+          <select className={inputCls} value={activity.modality} onChange={(e) => onChange({ ...activity, modality: e.target.value as any })}>
+            <option value="">—</option>
+            <option value="Presencial">Presencial</option>
+            <option value="En línea">En línea</option>
+            <option value="Híbrida">Híbrida</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Fecha y horarios">
+        <input className={inputCls} value={activity.dateAndTime} onChange={(e) => onChange({ ...activity, dateAndTime: e.target.value })} />
+      </Field>
+      <Field label="Lugar">
+        <input className={inputCls} value={activity.place} onChange={(e) => onChange({ ...activity, place: e.target.value })} />
+      </Field>
+      <Field label="Actividad seriada (ciclo/marco)">
+        <input className={inputCls} value={activity.seriesInfo} onChange={(e) => onChange({ ...activity, seriesInfo: e.target.value })} />
+      </Field>
+      <Field label="Colaboración">
+        <input className={inputCls} value={activity.collaboration} onChange={(e) => onChange({ ...activity, collaboration: e.target.value })} />
+      </Field>
+
+      <Field label="Objetivo">
+        <textarea className={textareaCls} rows={3} value={activity.objective} onChange={(e) => onChange({ ...activity, objective: e.target.value })} />
+      </Field>
+      <Field label="Justificación">
+        <textarea className={textareaCls} rows={3} value={activity.justification} onChange={(e) => onChange({ ...activity, justification: e.target.value })} />
+      </Field>
+      <Field label="Temario">
+        <textarea className={textareaCls} rows={4} value={activity.syllabus} onChange={(e) => onChange({ ...activity, syllabus: e.target.value })} />
+      </Field>
+      <Field label="Metodología">
+        <textarea className={textareaCls} rows={3} value={activity.methodology} onChange={(e) => onChange({ ...activity, methodology: e.target.value })} />
+      </Field>
+      <Field label="Perfil de ingreso">
+        <textarea className={textareaCls} rows={3} value={activity.entryProfile} onChange={(e) => onChange({ ...activity, entryProfile: e.target.value })} />
+      </Field>
+      <Field label="Número de asistentes">
+        <textarea className={textareaCls} rows={2} value={activity.attendees} onChange={(e) => onChange({ ...activity, attendees: e.target.value })} />
+      </Field>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Materiales solicitados">
+          <textarea className={textareaCls} rows={2} value={activity.materials} onChange={(e) => onChange({ ...activity, materials: e.target.value })} />
+        </Field>
+        <Field label="Cuota de recuperación">
+          <textarea className={textareaCls} rows={2} value={activity.materialFee} onChange={(e) => onChange({ ...activity, materialFee: e.target.value })} />
+        </Field>
+      </div>
+
+      <Field label="Semblanza">
+        <textarea className={textareaCls} rows={3} value={activity.bio} onChange={(e) => onChange({ ...activity, bio: e.target.value })} />
+      </Field>
+      <Field label="Consideraciones extra (registro)">
+        <textarea className={textareaCls} rows={3} value={activity.registrationConsiderations} onChange={(e) => onChange({ ...activity, registrationConsiderations: e.target.value })} />
+      </Field>
+      <Field label="Líneas fuerza">
+        <textarea className={textareaCls} rows={3} value={activity.promoLines} onChange={(e) => onChange({ ...activity, promoLines: e.target.value })} />
+      </Field>
+      <Field label="Recursos para atención al público">
+        <textarea className={textareaCls} rows={3} value={activity.audienceResources} onChange={(e) => onChange({ ...activity, audienceResources: e.target.value })} />
+      </Field>
+      <Field label="Palabras clave">
+        <input className={inputCls} value={activity.keywords} onChange={(e) => onChange({ ...activity, keywords: e.target.value })} />
+      </Field>
+
+      <div className="mt-6 rounded-2xl bg-slate-50 p-4 ring-1 ring-black/5">
+        <div className="text-sm font-semibold text-slate-900">Requerimientos técnicos</div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {([
+            ["Internet", "internet"],
+            ["Montaje", "setup"],
+            ["Transmisión", "broadcast"],
+            ["Proyección / Audio", "projectionAudio"],
+            ["Otros", "other"],
+          ] as const).map(([label, key]) => (
+            <Field key={key} label={label}>
+              <input
+                className={inputCls}
+                value={(activity.tech as any)[key]}
+                onChange={(e) => onChange({ ...activity, tech: { ...activity.tech, [key]: e.target.value } })}
+              />
+            </Field>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <Field label="Notas internas (no aparecen en la ficha)">
+          <textarea className={textareaCls} rows={4} value={activity.internalNotes ?? ""} onChange={(e) => onChange({ ...activity, internalNotes: e.target.value })} />
+        </Field>
+      </div>
+    </Card>
   );
 }
 
@@ -237,57 +525,32 @@ function SessionEditor({
 }) {
   return (
     <div className="rounded-3xl bg-slate-50 p-5 ring-1 ring-black/5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-semibold text-slate-900">
-          Sesión {session.index} de {total}
-        </div>
+      <div className="text-sm font-semibold text-slate-900">
+        Sesión {session.index} de {total}
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Título">
-          <input
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            value={session.title}
-            onChange={(e) => onChange({ title: e.target.value })}
-          />
+          <input className={inputCls} value={session.title} onChange={(e) => onChange({ title: e.target.value })} />
         </Field>
         <Field label="Fecha (texto)">
-          <input
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            value={session.dateText}
-            onChange={(e) => onChange({ dateText: e.target.value })}
-          />
+          <input className={inputCls} value={session.dateText} onChange={(e) => onChange({ dateText: e.target.value })} />
         </Field>
         <Field label="Horario (texto)">
-          <input
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            value={session.timeText}
-            onChange={(e) => onChange({ timeText: e.target.value })}
-          />
+          <input className={inputCls} value={session.timeText} onChange={(e) => onChange({ timeText: e.target.value })} />
         </Field>
       </div>
 
       <div className="mt-6">
-        <ListEditor
-          title="Objetivos de aprendizaje"
-          items={session.learningObjectives}
-          onChange={(items) => onChange({ learningObjectives: items })}
-        />
+        <ListEditor title="Objetivos" items={session.learningObjectives} onChange={(items) => onChange({ learningObjectives: items })} />
       </div>
 
       <div className="mt-6">
-        <AgendaEditor
-          agenda={session.agenda}
-          onChange={(agenda) => onChange({ agenda })}
-        />
+        <AgendaEditor agenda={session.agenda} onChange={(agenda) => onChange({ agenda })} />
       </div>
 
       <div className="mt-6">
-        <ListEditor
-          title="Materiales"
-          items={session.materials}
-          onChange={(items) => onChange({ materials: items })}
-        />
+        <ListEditor title="Materiales" items={session.materials} onChange={(items) => onChange({ materials: items })} />
       </div>
     </div>
   );
@@ -309,7 +572,7 @@ function ListEditor({
         {items.map((it, idx) => (
           <div key={idx} className="flex gap-2">
             <input
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+              className={inputCls}
               value={it}
               onChange={(e) => onChange(items.map((x, i) => (i === idx ? e.target.value : x)))}
             />
@@ -343,21 +606,21 @@ function AgendaEditor({
 }) {
   return (
     <div>
-      <div className="text-sm font-semibold text-slate-900">Desglose horario</div>
+      <div className="text-sm font-semibold text-slate-900">Agenda</div>
       <div className="mt-3 space-y-3">
         {agenda.map((a, idx) => (
           <div key={idx} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="Hora">
                 <input
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+                  className={inputCls}
                   value={a.time}
                   onChange={(e) => onChange(agenda.map((x, i) => (i === idx ? { ...x, time: e.target.value } : x)))}
                 />
               </Field>
               <Field label="Título">
                 <input
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+                  className={inputCls}
                   value={a.title}
                   onChange={(e) => onChange(agenda.map((x, i) => (i === idx ? { ...x, title: e.target.value } : x)))}
                 />
@@ -365,13 +628,11 @@ function AgendaEditor({
               <Field label="Duración (min)">
                 <input
                   type="number"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+                  className={inputCls}
                   value={a.durationMin}
                   onChange={(e) =>
                     onChange(
-                      agenda.map((x, i) =>
-                        i === idx ? { ...x, durationMin: Number(e.target.value || 0) } : x
-                      )
+                      agenda.map((x, i) => (i === idx ? { ...x, durationMin: Number(e.target.value || 0) } : x))
                     )
                   }
                 />
@@ -379,7 +640,7 @@ function AgendaEditor({
             </div>
             <Field label="Notas (opcional)">
               <input
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+                className={inputCls}
                 value={a.notes ?? ""}
                 onChange={(e) => onChange(agenda.map((x, i) => (i === idx ? { ...x, notes: e.target.value } : x)))}
               />
@@ -424,3 +685,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
+
+const inputCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";
+const textareaCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";

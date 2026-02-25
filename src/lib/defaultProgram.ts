@@ -1,6 +1,6 @@
-import type { Program } from "./types";
+import type { ActivityDoc, ArtisticActivity, CourseActivity, Program } from "./types";
 
-export const defaultProgram: Program = {
+export const defaultSessionsProgram: Program = {
   title: "Taller de Electrónica, Electricidad y Sensores para Danza",
   subtitle: "Programa Académico",
   description:
@@ -45,4 +45,79 @@ export const defaultProgram: Program = {
       materials: ["Kit de componentes básicos", "Protoboard", "Multímetro", "Baterías 9V"],
     },
   ],
+};
+
+export const defaultArtisticActivity: ArtisticActivity = {
+  title: "",
+  participants: "",
+  organizingLab: "",
+  cycleName: "",
+  collaboration: "",
+  description: "",
+  modality: "",
+  dateAndTime: "",
+  rehearsalSchedule: "N/A",
+  setupSchedule: "N/A",
+  place: "",
+  particularities: "N/A",
+  registrationConsiderations: "N/A",
+  bio: "N/A",
+  promoLines: "",
+  audienceResources: "",
+  keywords: "",
+  tech: {
+    internet: "N/A",
+    setup: "N/A",
+    rehearsal: "N/A",
+    broadcast: "",
+    projectionAudio: "N/A",
+    other: "",
+  },
+  internalNotes: "",
+};
+
+export const defaultCourseActivity: CourseActivity = {
+  title: "",
+  typeLabel: "",
+  instructor: "",
+  organizingLab: "",
+  contactEmail: "",
+  durationHours: 3,
+  dateAndTime: "",
+  place: "",
+  seriesInfo: "",
+  collaboration: "",
+  modality: "",
+  objective: "",
+  justification: "",
+  syllabus: "",
+  methodology: "",
+  entryProfile: "",
+  attendees: "",
+  materials: "",
+  materialFee: "",
+  evaluation: {
+    attendance: "",
+    participation: "",
+    cameraOn: "",
+    other: "",
+  },
+  promoLines: "",
+  audienceResources: "",
+  keywords: "",
+  bio: "",
+  registrationConsiderations: "",
+  tech: {
+    internet: "",
+    setup: "",
+    broadcast: "",
+    projectionAudio: "",
+    other: "",
+  },
+  internalNotes: "",
+};
+
+export const defaultDoc: ActivityDoc = {
+  kind: "sessions",
+  program: defaultSessionsProgram,
 };
