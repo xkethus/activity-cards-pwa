@@ -1,4 +1,5 @@
 import type { ActivityDoc, ArtisticActivity, CourseActivity, Program } from "./types";
+import { makeLiteSessions } from "./courseSessions";
 
 export const defaultSessionsProgram: Program = {
   title: "Taller de Electrónica, Electricidad y Sensores para Danza",
@@ -82,7 +83,11 @@ export const defaultCourseActivity: CourseActivity = {
   instructor: "",
   organizingLab: "",
   contactEmail: "",
-  durationHours: 3,
+
+  sessionsCount: 8,
+  hoursPerSession: 3,
+  sessions: makeLiteSessions(8, 3),
+
   dateAndTime: "",
   place: "",
   seriesInfo: "",
@@ -118,6 +123,6 @@ export const defaultCourseActivity: CourseActivity = {
 };
 
 export const defaultDoc: ActivityDoc = {
-  kind: "sessions",
-  program: defaultSessionsProgram,
+  kind: "course",
+  activity: defaultCourseActivity,
 };

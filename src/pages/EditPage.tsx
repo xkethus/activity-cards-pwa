@@ -24,6 +24,7 @@ import {
   defaultCourseActivity,
   defaultSessionsProgram,
 } from "../lib/defaultProgram";
+import { normalizeLiteSessions } from "../lib/courseSessions";
 import { downloadMarkdown } from "../exports/toMarkdown";
 
 export function EditPage() {
@@ -86,10 +87,9 @@ export function EditPage() {
     }
   }
 
-  function setKind(kind: ActivityDoc["kind"]) {
+  function setKind(kind: "artistic" | "course") {
     setDoc((prev) => {
       if (prev.kind === kind) return prev;
-      if (kind === "sessions") return { kind, program: defaultSessionsProgram };
       if (kind === "artistic") return { kind, activity: defaultArtisticActivity };
       return { kind, activity: defaultCourseActivity };
     });
@@ -186,11 +186,10 @@ export function EditPage() {
             <select
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
               value={doc.kind}
-              onChange={(e) => setKind(e.target.value as ActivityDoc["kind"])}
+              onChange={(e) => setKind(e.target.value as any)}
             >
-              <option value="sessions">Programa por sesiones</option>
-              <option value="course">Cursos / talleres / seminarios</option>
-              <option value="artistic">Actividades artísticas</option>
+              <option value="course">Taller / Curso</option>
+              <option value="artistic">Actividad artística</option>
             </select>
           </Field>
 
@@ -517,13 +516,36 @@ function CourseEditor({
         <input className={inputCls} value={activity.contactEmail} onChange={(e) => onChange({ ...activity, contactEmail: e.target.value })} />
       </Field>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Duración (horas)">
+        <Field label="Número de sesiones (obligatorio)">
           <input
             type="number"
             className={inputCls}
-            value={activity.durationHours}
+            value={activity.sessionsCount}
             min={1}
-            onChange={(e) => onChange({ ...activity, durationHours: Math.max(1, Number(e.target.value || 1)) })}
+            onChange={(e) => {
+              const n = Math.max(1, Number(e.target.value || 1));
+              onChange({
+                ...activity,
+                sessionsCount: n,
+                sessions: normalizeLiteSessions(activity.sessions, n, activity.hoursPerSession),
+              });
+            }}
+          />
+        </Field>
+        <Field label="Horas por sesión">
+          <input
+            type="number"
+            className={inputCls}
+            value={activity.hoursPerSession}
+            min={1}
+            onChange={(e) => {
+              const h = Math.max(1, Number(e.target.value || 1));
+              onChange({
+                ...activity,
+                hoursPerSession: h,
+                sessions: activity.sessions.map((s) => ({ ...s, durationHours: s.durationHours || h })),
+              });
+            }}
           />
         </Field>
         <Field label="Modalidad">
@@ -534,6 +556,28 @@ function CourseEditor({
             <option value="Híbrida">Híbrida</option>
           </select>
         </Field>
+      </div>
+
+      <div className="mt-6">
+        <LiteSessionsEditor
+          sessions={activity.sessions}
+          hoursPerSession={activity.hoursPerSession}
+          onChange={(sessions) => onChange({ ...activity, sessions })}
+          onAdd={() => {
+            const nextIndex = (activity.sessions.at(-1)?.index ?? activity.sessions.length) + 1;
+            const next = [
+              ...activity.sessions,
+              {
+                index: nextIndex,
+                title: "",
+                dateText: "",
+                timeText: "",
+                durationHours: activity.hoursPerSession,
+              },
+            ];
+            onChange({ ...activity, sessionsCount: next.length, sessions: next });
+          }}
+        />
       </div>
       <Field label="Fecha y horarios">
         <input className={inputCls} value={activity.dateAndTime} onChange={(e) => onChange({ ...activity, dateAndTime: e.target.value })} />
@@ -806,6 +850,101 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <div className="mb-1 text-sm font-medium text-slate-700">{label}</div>
       {children}
     </label>
+  );
+}
+
+function LiteSessionsEditor({
+  sessions,
+  hoursPerSession,
+  onChange,
+  onAdd,
+}: {
+  sessions: { index: number; title?: string; dateText: string; timeText: string; durationHours: number }[];
+  hoursPerSession: number;
+  onChange: (sessions: { index: number; title?: string; dateText: string; timeText: string; durationHours: number }[]) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="rounded-3xl bg-slate-50 p-5 ring-1 ring-black/5">
+      <div className="text-sm font-semibold text-slate-900">Sesiones (fechas y horarios)</div>
+      <div className="mt-3 space-y-3">
+        {sessions
+          .slice()
+          .sort((a, b) => a.index - b.index)
+          .map((s) => (
+            <div key={s.index} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
+              <div className="text-xs font-semibold text-slate-700">Sesión {s.index}</div>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <Field label="Título (opcional)">
+                  <input
+                    className={inputCls}
+                    value={s.title ?? ""}
+                    onChange={(e) =>
+                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, title: e.target.value } : x)))
+                    }
+                  />
+                </Field>
+                <Field label="Fecha">
+                  <input
+                    className={inputCls}
+                    value={s.dateText}
+                    onChange={(e) =>
+                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, dateText: e.target.value } : x)))
+                    }
+                    placeholder="Ej. 12/03/2026"
+                  />
+                </Field>
+                <Field label="Horario">
+                  <input
+                    className={inputCls}
+                    value={s.timeText}
+                    onChange={(e) =>
+                      onChange(sessions.map((x) => (x.index === s.index ? { ...x, timeText: e.target.value } : x)))
+                    }
+                    placeholder="Ej. 16:00 - 19:00"
+                  />
+                </Field>
+                <Field label="Duración (h)">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={s.durationHours || hoursPerSession}
+                    min={1}
+                    onChange={(e) =>
+                      onChange(
+                        sessions.map((x) =>
+                          x.index === s.index ? { ...x, durationHours: Math.max(1, Number(e.target.value || 1)) } : x
+                        )
+                      )
+                    }
+                  />
+                </Field>
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+                  onClick={() => {
+                    const next = sessions.filter((x) => x.index !== s.index).map((x, i) => ({ ...x, index: i + 1 }));
+                    onChange(next);
+                  }}
+                  disabled={sessions.length <= 1}
+                >
+                  Quitar
+                </button>
+              </div>
+            </div>
+          ))}
+      </div>
+      <button
+        type="button"
+        className="mt-3 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+        onClick={onAdd}
+      >
+        + Agregar sesión
+      </button>
+    </div>
   );
 }
 

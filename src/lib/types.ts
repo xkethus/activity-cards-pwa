@@ -17,6 +17,7 @@ export type SessionAgendaItem = {
   notes?: string;
 };
 
+// Sesión completa (legacy / útil para programas académicos detallados)
 export type Session = {
   index: number; // 1..N
   title: string;
@@ -27,9 +28,18 @@ export type Session = {
   materials: string[];
 };
 
+// Sesión ligera (lo obligatorio para Taller/Curso: fecha + horario + duración)
+export type SessionLite = {
+  index: number;
+  title?: string;
+  dateText: string;
+  timeText: string;
+  durationHours: number;
+};
+
 // --- Activity templates (from docs/*.docx) ---
 
-export type ActivityType = "sessions" | "artistic" | "course";
+export type ActivityType = "artistic" | "course";
 
 export type ArtisticActivity = {
   title: string;
@@ -67,7 +77,12 @@ export type CourseActivity = {
   instructor: string;
   organizingLab: string;
   contactEmail: string;
-  durationHours: number;
+
+  // Programa por sesiones (obligatorio)
+  sessionsCount: number;
+  hoursPerSession: number;
+  sessions: SessionLite[];
+
   dateAndTime: string;
   place: string;
   seriesInfo: string;
@@ -103,6 +118,7 @@ export type CourseActivity = {
 };
 
 export type ActivityDoc =
+  // Legacy: se conserva por migración/compatibilidad
   | { kind: "sessions"; program: Program }
   | { kind: "artistic"; activity: ArtisticActivity }
   | { kind: "course"; activity: CourseActivity };

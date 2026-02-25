@@ -87,12 +87,18 @@ export function toMarkdown(doc: ActivityDoc): string {
     `**Laboratorio:** ${c.organizingLab}`,
     `**Contacto:** ${c.contactEmail}`,
     "",
-    `- Duración: ${c.durationHours} horas`,
+    `- Sesiones: ${c.sessionsCount} · ${c.hoursPerSession} horas por sesión`,
     `- Fecha y horarios: ${c.dateAndTime}`,
     `- Lugar: ${c.place}`,
     `- Serie/ciclo: ${c.seriesInfo}`,
     `- Colaboración: ${c.collaboration}`,
     `- Modalidad: ${c.modality}`,
+    "",
+    `## Programa por sesiones`,
+    ...c.sessions
+      .slice()
+      .sort((a, b) => a.index - b.index)
+      .map((s) => `- Sesión ${s.index}: ${s.dateText || "(Fecha por definir)"} · ${s.timeText || "(Horario por definir)"} · ${s.durationHours}h${s.title?.trim() ? ` — ${s.title.trim()}` : ""}`),
     "",
     `## Objetivo`,
     c.objective,

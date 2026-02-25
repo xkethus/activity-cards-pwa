@@ -25,12 +25,34 @@ export function CourseCard({ activity }: { activity: CourseActivity }) {
             <Field label="Imparte" value={activity.instructor} />
             <Field label="Laboratorio" value={activity.organizingLab} />
             <Field label="Correo" value={activity.contactEmail} />
-            <Field label="Duración" value={`${activity.durationHours || 0} horas`} />
+            <Field
+              label="Sesiones"
+              value={`${activity.sessionsCount || 0} · ${activity.hoursPerSession || 0} horas por sesión`}
+            />
             <Field label="Lugar" value={activity.place} />
             <Field label="Serie / ciclo" value={activity.seriesInfo} />
             <Field label="Colaboración" value={activity.collaboration} />
             <Field label="Asistentes" value={activity.attendees} />
           </Grid2>
+
+          <Section title="Programa por sesiones" className="mt-6 avoid-break">
+            <div className="mt-3 space-y-2">
+              {activity.sessions
+                .slice()
+                .sort((a, b) => a.index - b.index)
+                .map((s) => (
+                  <div key={s.index} className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-black/5">
+                    <div className="text-xs font-medium text-slate-500">Sesión {s.index}</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-800">
+                      {(s.title?.trim() ? s.title : "")}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-700">
+                      {s.dateText || "(Fecha por definir)"} · {s.timeText || "(Horario por definir)"} · {s.durationHours}h
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </Section>
 
           <Section title="Objetivo" className="mt-6">
             <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{activity.objective || ""}</p>
