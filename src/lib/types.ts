@@ -84,7 +84,17 @@ export type CourseActivity = {
   hoursPerSession: number;
   sessions: SessionLite[];
 
+  // Horario (puede ser igual para todas las sesiones o variable)
+  scheduleMode?: "SAME" | "VARIABLE";
+  generalSchedule?: {
+    dateISO: string; // opcional
+    startTime: string;
+    endTime: string;
+  };
+
+  // Nota: se conserva por compatibilidad, pero ya no debe ser obligatoria.
   dateAndTime: string;
+
   place: string;
   seriesInfo: string;
   collaboration: string;

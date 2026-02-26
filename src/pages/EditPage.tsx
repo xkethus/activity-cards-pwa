@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DatePickerField } from "../components/DatePickerField";
 import { validateForSubmission } from "../lib/validation";
+import { HelpTip } from "../components/Tooltip";
 import type {
   ActivityDoc,
   ArtisticActivity,
@@ -605,13 +606,13 @@ function CourseEditor({
       <Field label="Objetivo">
         <textarea className={textareaCls} rows={3} value={activity.objective} onChange={(e) => onChange({ ...activity, objective: e.target.value })} />
       </Field>
-      <Field label="Justificación">
+      <Field label={<>Justificación<HelpTip text="Explica por qué esta actividad es necesaria: pertinencia, problema que atiende, contexto y público." /></>}>
         <textarea className={textareaCls} rows={3} value={activity.justification} onChange={(e) => onChange({ ...activity, justification: e.target.value })} />
       </Field>
-      <Field label="Temario">
+      <Field label={<>Temario<HelpTip text="Lista de temas a cubrir (puede ser por módulos o por bloques)." /></>}>
         <textarea className={textareaCls} rows={4} value={activity.syllabus} onChange={(e) => onChange({ ...activity, syllabus: e.target.value })} />
       </Field>
-      <Field label="Metodología">
+      <Field label={<>Metodología<HelpTip text="Describe cómo se trabajará: dinámicas, estructura, ejercicios, recursos y modalidad." /></>}>
         <textarea className={textareaCls} rows={3} value={activity.methodology} onChange={(e) => onChange({ ...activity, methodology: e.target.value })} />
       </Field>
       <Field label="Perfil de ingreso">
@@ -856,7 +857,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <label className="block">
       <div className="mb-1 text-sm font-medium text-slate-700">{label}</div>

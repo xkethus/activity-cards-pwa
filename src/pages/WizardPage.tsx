@@ -11,6 +11,7 @@ import { ArtisticCard } from "../components/ArtisticCard";
 import { DateTimeRangeField } from "../components/DateTimeRangeField";
 import { LAB_OPTIONS } from "../lib/labs";
 import { HelpTip } from "../components/Tooltip";
+import { StepCard } from "../components/StepCard";
 
 type StepId =
   | "tipo"
@@ -52,7 +53,6 @@ function warningForStep(kind: ActivityType, stepId: StepId, title: string, cours
       }
       case "logistica": {
         const miss: string[] = [];
-        if (isBlank(course.dateAndTime)) miss.push("Fecha y horarios (texto general)");
         if (isBlank(course.place)) miss.push("Lugar");
         if (isBlank(course.modality)) miss.push("Modalidad");
         return miss;
@@ -259,7 +259,20 @@ export function WizardPage() {
         <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">{warning}</div>
       ) : null}
 
-      <div className="mt-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+      <div className="mt-6">
+        <StepCard
+          title={step.label}
+          stepText={`Paso ${stepIndex + 1}/${steps.length}`}
+          subtitle={
+            step.id === "tipo"
+              ? "Selecciona el tipo de ficha y el título."
+              : step.id === "sesiones"
+                ? "Define cuántas sesiones y duración."
+                : step.id === "preview"
+                  ? "Revisa la ficha y crea un borrador."
+                  : "Completa la información de esta sección."
+          }
+        >
         {step.id === "tipo" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={<>Tipo de ficha<HelpTip text="Selecciona el tipo de ficha. Esto define las secciones que verás después." /></>}>
@@ -289,6 +302,9 @@ export function WizardPage() {
                   <option value="Curso">Curso</option>
                   <option value="Seminario">Seminario</option>
                 </select>
+                <div className="mt-2 text-xs text-slate-600">
+                  <b>Taller:</b> aprendizaje práctico y aplicado. <b>Curso:</b> formación estructurada. <b>Seminario:</b> profundización y discusión.
+                </div>
               </Field>
             ) : null}
           </div>
@@ -347,13 +363,50 @@ export function WizardPage() {
 
         {kind === "course" && step.id === "logistica" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={<>Fecha y horarios (texto general)<HelpTip text="Fecha y horario general del curso/taller (texto corto para la ficha)." /></>}>
-              <DateTimeRangeField value={course.dateAndTime} onChange={(v) => setCourse((c) => ({ ...c, dateAndTime: v }))} />
+            <Field
+              label={
+                <>
+                  Horario de las sesiones
+                  <HelpTip text="Si todas las sesiones tienen el mismo horario, puedes capturarlo aquí. Si varía, lo capturarás por sesión en el editor." />
+                </>
+              }
+            >
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="scheduleMode"
+                    checked={(course.scheduleMode ?? "VARIABLE") === "SAME"}
+                    onChange={() => setCourse((c) => ({ ...c, scheduleMode: "SAME" }))}
+                  />
+                  Mismo horario para todas las sesiones
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="scheduleMode"
+                    checked={(course.scheduleMode ?? "VARIABLE") === "VARIABLE"}
+                    onChange={() => setCourse((c) => ({ ...c, scheduleMode: "VARIABLE" }))}
+                  />
+                  Horario variable (se define por sesión)
+                </label>
+
+                {(course.scheduleMode ?? "VARIABLE") === "SAME" ? (
+                  <DateTimeRangeField
+                    value={course.dateAndTime}
+                    onChange={(v) => setCourse((c) => ({ ...c, dateAndTime: v }))}
+                    dateLabel="Fecha (opcional)"
+                  />
+                ) : (
+                  <div className="text-sm text-slate-600">Tip: lo completarás en “Sesiones” del editor.</div>
+                )}
+              </div>
             </Field>
-            <Field label="Lugar">
+
+            <Field label={<>Lugar<HelpTip text="Sede o ubicación." /></>}>
               <input className={inputCls} value={course.place} onChange={(e) => setCourse((c) => ({ ...c, place: e.target.value }))} />
             </Field>
-            <Field label="Modalidad">
+            <Field label={<>Modalidad<HelpTip text="Presencial / En línea / Híbrida." /></>}>
               <select
                 className={inputCls}
                 value={course.modality}
@@ -373,11 +426,15 @@ export function WizardPage() {
             <Field label="Objetivo">
               <textarea className={textareaCls} rows={3} value={course.objective} onChange={(e) => setCourse((c) => ({ ...c, objective: e.target.value }))} />
             </Field>
-            <Field label="Justificación">
+            <Field label={<>Justificación<HelpTip text="Explica por qué esta actividad es necesaria: pertinencia, problema que atiende, contexto y público." /></>}>
               <textarea className={textareaCls} rows={3} value={course.justification} onChange={(e) => setCourse((c) => ({ ...c, justification: e.target.value }))} />
             </Field>
-            <Field label="Temario">
+            <Field label={<>Temario<HelpTip text="Lista de temas a cubrir (puede ser por módulos o por bloques)." /></>}>
               <textarea className={textareaCls} rows={4} value={course.syllabus} onChange={(e) => setCourse((c) => ({ ...c, syllabus: e.target.value }))} />
+            </Field>
+
+            <Field label={<>Metodología<HelpTip text="Describe cómo se trabajará: dinámicas, estructura, ejercicios, recursos y modalidad." /></>}>
+              <textarea className={textareaCls} rows={3} value={course.methodology} onChange={(e) => setCourse((c) => ({ ...c, methodology: e.target.value }))} />
             </Field>
             <Field label="Perfil de ingreso">
               <textarea className={textareaCls} rows={3} value={course.entryProfile} onChange={(e) => setCourse((c) => ({ ...c, entryProfile: e.target.value }))} />
@@ -517,6 +574,7 @@ export function WizardPage() {
             </div>
           </div>
         ) : null}
+        </StepCard>
       </div>
 
       <div className="mt-6 flex items-center justify-between">

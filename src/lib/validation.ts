@@ -19,7 +19,7 @@ export function validateForSubmission(doc: ActivityDoc): string[] {
     if (!c.sessionsCount || c.sessionsCount < 1) missing.push("Número de sesiones");
     if (!c.hoursPerSession || c.hoursPerSession < 1) missing.push("Horas por sesión");
 
-    if (isBlank(c.dateAndTime)) missing.push("Fecha y horarios (texto general)");
+    // Horarios: pueden ser iguales o variables; no lo hacemos obligatorio aquí.
     if (isBlank(c.place)) missing.push("Lugar");
     if (isBlank(c.modality)) missing.push("Modalidad");
 
