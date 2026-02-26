@@ -291,7 +291,14 @@ export function WizardPage() {
             </Field>
 
             {kind === "course" ? (
-              <Field label={<>Tipo (curso/taller/seminario)<HelpTip text="Etiqueta del formato académico." /></>}>
+              <Field
+                label={
+                  <>
+                    Tipo (curso/taller/seminario)
+                    <HelpTip text="Taller: aprendizaje práctico y aplicado. Curso: formación estructurada. Seminario: profundización y discusión guiada." />
+                  </>
+                }
+              >
                 <select
                   className={inputCls}
                   value={course.typeLabel}
@@ -302,9 +309,6 @@ export function WizardPage() {
                   <option value="Curso">Curso</option>
                   <option value="Seminario">Seminario</option>
                 </select>
-                <div className="mt-2 text-xs text-slate-600">
-                  <b>Taller:</b> aprendizaje práctico y aplicado. <b>Curso:</b> formación estructurada. <b>Seminario:</b> profundización y discusión.
-                </div>
               </Field>
             ) : null}
           </div>
