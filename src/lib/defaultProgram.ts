@@ -87,6 +87,7 @@ export const defaultCourseActivity: CourseActivity = {
   sessionsCount: 8,
   hoursPerSession: 3,
   sessions: makeLiteSessions(8, 3),
+  scheduleMode: "SAME" as const,
 
   dateAndTime: "",
   place: "",
