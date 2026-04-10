@@ -305,7 +305,7 @@ export function WizardPage() {
       </div>
 
       {/* ── Desktop: sidebar grid ── */}
-      <div className="mt-6 grid grid-cols-1 items-start gap-6 sm:grid-cols-[200px_1fr]">
+      <div className="mt-6 grid grid-cols-1 items-start gap-6 sm:grid-cols-[224px_1fr]">
         {/* Desktop sidebar nav (hidden on mobile — rendered above instead) */}
         <div className="hidden sm:block">
           <DotNav items={dotItems} activeId={step.id} onSelect={goToStep} />

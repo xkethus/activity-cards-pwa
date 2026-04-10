@@ -74,12 +74,16 @@ export function DotNav({
       ───────────────────────────────────────── */}
       <div className="hidden sm:block sm:sticky sm:top-6">
         <div className="relative rounded-3xl bg-white/80 p-3 shadow-sm ring-1 ring-black/5 backdrop-blur">
-          {/* animated highlight pill */}
+          {/* animated highlight pill
+              Each button = py-2 (16px) + text-sm line-height (20px) = 36px
+              gap-1 between items = 4px  →  stride = 40px
+              container p-3 = 12px top offset
+          */}
           <motion.div
             className="absolute left-3 right-3 rounded-2xl bg-slate-900/5"
             animate={{
-              top: 8 + activeIndex * 36,
-              height: 30,
+              top: 12 + activeIndex * 40,
+              height: 36,
             }}
             transition={{ type: "spring", stiffness: 450, damping: 40 }}
           />
@@ -108,7 +112,7 @@ export function DotNav({
                     animate={{ scale: active ? 1.25 : 1 }}
                     transition={{ type: "spring", stiffness: 600, damping: 35 }}
                   />
-                  <span className={"text-sm " + (active ? "font-semibold text-slate-900" : "text-slate-600")}>
+                  <span className={"min-w-0 truncate text-sm " + (active ? "font-semibold text-slate-900" : "text-slate-600")}>
                     {it.label}
                   </span>
                 </button>
