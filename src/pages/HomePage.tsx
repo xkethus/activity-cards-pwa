@@ -145,27 +145,36 @@ function HeroAction({
   return (
     <Link
       to={to}
-      className="group relative overflow-hidden rounded-3xl bg-white p-6 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow"
+      className="group relative flex min-h-[230px] flex-col overflow-hidden rounded-3xl bg-white p-7 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md"
     >
-      <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-800 ring-1 ring-black/5 transition group-hover:bg-white">
+      {/* ── Default state ── */}
+      <div className="flex items-start gap-4">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700 ring-1 ring-black/5 transition group-hover:bg-indigo-50 group-hover:text-indigo-700">
           {icon}
         </span>
-        <div>
-          <div className="text-sm font-semibold text-slate-900">{title}</div>
-          <div className="mt-1 text-sm text-slate-600">{desc}</div>
+        <div className="min-w-0">
+          <div className="text-xl font-semibold tracking-tight text-slate-900">{title}</div>
+          <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{desc}</p>
         </div>
       </div>
 
-      {/* Hover / focus panel */}
-      <div className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100 group-focus:opacity-100">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/10 via-transparent to-cyan-500/10" />
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <div className="rounded-2xl bg-white/85 p-4 text-sm text-slate-800 ring-1 ring-black/10 backdrop-blur">
-            <div className="text-xs font-semibold text-slate-600">{hoverTitle}</div>
-            <ul className="mt-2 list-disc pl-5">
+      {/* ── Hover overlay: gradient tint + info panel ── */}
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+        {/* subtle tint */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/8 via-transparent to-cyan-400/8" />
+
+        {/* info panel — anchored to bottom, never overflows because min-h ensures room */}
+        <div className="absolute bottom-0 left-0 right-0 p-5">
+          <div className="rounded-2xl bg-white/92 px-4 py-3 ring-1 ring-black/8 backdrop-blur-sm">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+              {hoverTitle}
+            </div>
+            <ul className="space-y-1">
               {hoverItems.map((it) => (
-                <li key={it}>{it}</li>
+                <li key={it} className="flex items-center gap-2 text-sm text-slate-700">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
+                  {it}
+                </li>
               ))}
             </ul>
           </div>
