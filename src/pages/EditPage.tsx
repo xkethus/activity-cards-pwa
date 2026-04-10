@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { DatePickerField } from "../components/DatePickerField";
 import { validateForSubmission } from "../lib/validation";
 import { HelpTip } from "../components/Tooltip";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import type {
   ActivityDoc,
   ArtisticActivity,
@@ -48,6 +49,7 @@ export function EditPage() {
   const [rec, setRec] = useState<ActivityRecord | null>(initialRec);
   const [doc, setDoc] = useState<ActivityDoc>(initialRec?.doc ?? { kind: "sessions", program: defaultSessionsProgram });
   const [status, setStatus] = useState<string>("");
+  const [confirmReset, setConfirmReset] = useState(false);
 
   const canEdit = useMemo(() => {
     if (!auth || !rec) return false;
@@ -100,6 +102,30 @@ export function EditPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
+      {confirmReset ? (
+        <ConfirmDialog
+          title="Restablecer ficha"
+          message="Se borrarán todos los cambios y la ficha volverá a los valores por defecto. Esta acción no se puede deshacer."
+          confirmLabel="Sí, restablecer"
+          danger
+          onConfirm={() => {
+            setDoc((prev) => {
+              if (prev.kind === "sessions") return { kind: "sessions", program: defaultSessionsProgram };
+              if (prev.kind === "artistic") return { kind: "artistic", activity: defaultArtisticActivity };
+              return { kind: "course", activity: defaultCourseActivity };
+            });
+            setRec((prev) => {
+              if (!prev) return prev;
+              const next: ActivityRecord = { ...prev, status: "BORRADOR", updatedAt: Date.now() };
+              upsertDoc(next);
+              return next;
+            });
+            setConfirmReset(false);
+          }}
+          onCancel={() => setConfirmReset(false)}
+        />
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Editar</h1>
         <div className="flex flex-wrap gap-2">
@@ -236,19 +262,7 @@ export function EditPage() {
 
             <button
               className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
-              onClick={() => {
-                setDoc((prev) => {
-                  if (prev.kind === "sessions") return { kind: "sessions", program: defaultSessionsProgram };
-                  if (prev.kind === "artistic") return { kind: "artistic", activity: defaultArtisticActivity };
-                  return { kind: "course", activity: defaultCourseActivity };
-                });
-                setRec((prev) => {
-                  if (!prev) return prev;
-                  const next: ActivityRecord = { ...prev, status: "BORRADOR", updatedAt: Date.now() };
-                  upsertDoc(next);
-                  return next;
-                });
-              }}
+              onClick={() => setConfirmReset(true)}
               type="button"
             >
               Reset

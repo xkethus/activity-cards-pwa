@@ -4,12 +4,14 @@ import { loadAuth } from "../lib/auth";
 import { loadUsers, saveUsers, type UserRecord } from "../lib/db";
 import type { Role } from "../lib/roles";
 import { ROLE_LABEL } from "../lib/roles";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 export function AdminPage() {
   const nav = useNavigate();
   const auth = loadAuth();
   const [users, setUsers] = useState<UserRecord[]>(() => loadUsers());
   const [status, setStatus] = useState<string>("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useMemo(() => {
     if (!auth) nav("/login");
@@ -38,8 +40,23 @@ export function AdminPage() {
     ]);
   }
 
+  const userToDelete = deletingId ? users.find((u) => u.id === deletingId) : null;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
+      {deletingId && userToDelete ? (
+        <ConfirmDialog
+          title="Eliminar usuario"
+          message={`¿Eliminar a "${userToDelete.name}"? Sus fichas quedarán huérfanas pero no se borrarán.`}
+          confirmLabel="Sí, eliminar"
+          danger
+          onConfirm={() => {
+            persist(users.filter((x) => x.id !== deletingId));
+            setDeletingId(null);
+          }}
+          onCancel={() => setDeletingId(null)}
+        />
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Administración</h1>
         <Link
@@ -94,7 +111,7 @@ export function AdminPage() {
                 <button
                   type="button"
                   className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
-                  onClick={() => persist(users.filter((x) => x.id !== u.id))}
+                  onClick={() => setDeletingId(u.id)}
                 >
                   Eliminar
                 </button>
