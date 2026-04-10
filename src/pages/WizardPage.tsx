@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loadAuth } from "../lib/auth";
 import { createDoc } from "../lib/db";
-import type { ActivityDoc, ActivityType, ArtisticActivity, CourseActivity, SessionLite } from "../lib/types";
+import { saveFichaBundle } from "../lib/storage";
+import type { ActivityDoc, ActivityType, ArtisticActivity, CourseActivity, FixedSchedule, SessionLite } from "../lib/types";
 import { defaultArtisticActivity, defaultCourseActivity } from "../lib/defaultProgram";
 import { normalizeLiteSessions } from "../lib/courseSessions";
 
@@ -118,6 +119,16 @@ function warningForStep(kind: ActivityType, stepId: StepId, title: string, cours
 
 function setLiteSession(s: SessionLite, patch: Partial<SessionLite>): SessionLite {
   return { ...s, ...patch };
+}
+
+const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function emptyFixedSchedule(): FixedSchedule {
+  return { startDateISO: "", endDateISO: "", weekdays: [], startTime: "", endTime: "" };
+}
+
+function patchFixedSchedule(c: CourseActivity, patch: Partial<FixedSchedule>): CourseActivity {
+  return { ...c, fixedSchedule: { ...emptyFixedSchedule(), ...c.fixedSchedule, ...patch } };
 }
 
 export function WizardPage() {
@@ -271,6 +282,7 @@ export function WizardPage() {
     if (!auth) return;
     const doc = makeDraftDoc();
     createDoc(auth.userId, doc);
+    saveFichaBundle(doc);
     nav("/view");
   }
 
@@ -278,11 +290,9 @@ export function WizardPage() {
     <div className="mx-auto max-w-5xl px-4 py-10">
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Creador de ficha</h1>
-          <div className="mt-1 text-sm text-slate-600">
-            Paso {stepIndex + 1} de {steps.length}: <b>{step.label}</b>
-          </div>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
+          <h1 className="text-lg font-semibold tracking-tight text-slate-900">Creador de ficha</h1>
         </div>
         <Link
           to="/"
@@ -546,11 +556,76 @@ export function WizardPage() {
                     </label>
 
                     {(course.scheduleMode ?? "SAME") === "SAME" ? (
-                      <DateTimeRangeField
-                        value={course.dateAndTime}
-                        onChange={(v) => setCourse((c) => ({ ...c, dateAndTime: v }))}
-                        dateLabel="Fecha (opcional)"
-                      />
+                      <div className="space-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-black/5">
+                        {/* Periodo */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="block">
+                            <div className="mb-1 text-sm font-medium text-slate-700">Primera sesión</div>
+                            <DatePickerField
+                              valueISO={course.fixedSchedule?.startDateISO ?? ""}
+                              onChangeISO={(iso) => setCourse((c) => patchFixedSchedule(c, { startDateISO: iso }))}
+                            />
+                          </label>
+                          <label className="block">
+                            <div className="mb-1 text-sm font-medium text-slate-700">Última sesión</div>
+                            <DatePickerField
+                              valueISO={course.fixedSchedule?.endDateISO ?? ""}
+                              onChangeISO={(iso) => setCourse((c) => patchFixedSchedule(c, { endDateISO: iso }))}
+                            />
+                          </label>
+                        </div>
+                        {/* Días de la semana */}
+                        <div>
+                          <div className="mb-2 text-sm font-medium text-slate-700">Día(s) de la semana</div>
+                          <div className="flex flex-wrap gap-2">
+                            {WEEKDAYS.map((day) => {
+                              const active = (course.fixedSchedule?.weekdays ?? []).includes(day);
+                              return (
+                                <button
+                                  key={day}
+                                  type="button"
+                                  className={
+                                    "rounded-full px-3 py-1 text-sm ring-1 transition-colors " +
+                                    (active
+                                      ? "bg-indigo-600 text-white ring-indigo-600"
+                                      : "bg-white text-slate-600 ring-black/10 hover:bg-slate-100")
+                                  }
+                                  onClick={() =>
+                                    setCourse((c) => {
+                                      const prev = c.fixedSchedule?.weekdays ?? [];
+                                      const next = active ? prev.filter((d) => d !== day) : [...prev, day];
+                                      return patchFixedSchedule(c, { weekdays: next });
+                                    })
+                                  }
+                                >
+                                  {day}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Horario */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="block">
+                            <div className="mb-1 text-sm font-medium text-slate-700">Hora de inicio</div>
+                            <input
+                              type="time"
+                              className={inputCls}
+                              value={course.fixedSchedule?.startTime ?? ""}
+                              onChange={(e) => setCourse((c) => patchFixedSchedule(c, { startTime: e.target.value }))}
+                            />
+                          </label>
+                          <label className="block">
+                            <div className="mb-1 text-sm font-medium text-slate-700">Hora de fin</div>
+                            <input
+                              type="time"
+                              className={inputCls}
+                              value={course.fixedSchedule?.endTime ?? ""}
+                              onChange={(e) => setCourse((c) => patchFixedSchedule(c, { endTime: e.target.value }))}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     ) : (
                       <div className="text-sm text-slate-600">Tip: completa fechas/horarios en el paso "Sesiones".</div>
                     )}

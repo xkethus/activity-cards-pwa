@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loadAuth } from "../lib/auth";
-import { deriveTitle, loadDocs, setActiveDocId, type ActivityRecord } from "../lib/db";
+import { createDoc, deriveTitle, loadDocs, setActiveDocId, type ActivityRecord } from "../lib/db";
 import { hasPermission } from "../lib/roles";
+import { importDocJson } from "../lib/storage";
 
 function formatStatus(s: ActivityRecord["status"]) {
   switch (s) {
@@ -21,6 +22,23 @@ export function DocsPage() {
   const nav = useNavigate();
   const auth = loadAuth();
   const [q, setQ] = useState("");
+  const [importError, setImportError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ""; // reset so same file can be re-imported
+    setImportError("");
+    importDocJson(file)
+      .then((doc) => {
+        if (!auth) return;
+        const rec = createDoc(auth.userId, doc);
+        setActiveDocId(rec.id);
+        nav("/view");
+      })
+      .catch(() => setImportError("El archivo no es una ficha válida. Asegúrate de usar un archivo .json exportado desde esta herramienta."));
+  }
 
   const docs = useMemo(() => loadDocs(), []);
 
@@ -53,15 +71,43 @@ export function DocsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
+      {/* Input oculto para importar */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleImport}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Fichas</h1>
-        <Link
-          to="/"
-          className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
-        >
-          Menú
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <svg className="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path d="M9.25 3.75a.75.75 0 0 1 1.5 0v7.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V3.75Z" />
+              <path d="M3 13.25a.75.75 0 0 1 .75.75v1.75h12.5V14a.75.75 0 0 1 1.5 0v2a1.25 1.25 0 0 1-1.25 1.25H3.75A1.25 1.25 0 0 1 2.5 16v-2a.75.75 0 0 1 .5-.75Z" />
+            </svg>
+            Cargar ficha
+          </button>
+          <Link
+            to="/"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+          >
+            Menú
+          </Link>
+        </div>
       </div>
+
+      {importError ? (
+        <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-rose-200">
+          {importError}
+        </div>
+      ) : null}
 
       <div className="mt-4">
         <input

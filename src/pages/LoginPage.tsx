@@ -25,9 +25,15 @@ export function LoginPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Entrar</h1>
-      <p className="mt-2 text-sm text-slate-600">
-        Ingresa tu <b>código de acceso</b>. (Modo offline: esto es control operativo, no seguridad fuerte.)
+      <div className="flex items-center gap-3 mb-6">
+        <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-10 w-auto" />
+        <div>
+          <div className="text-base font-semibold tracking-tight text-slate-900">Gestor Centro Multimedia-CENART</div>
+          <div className="text-xs text-slate-500">Sistema de gestión de fichas de actividades</div>
+        </div>
+      </div>
+      <p className="text-sm text-slate-600">
+        Ingresa tu <b>código de acceso</b>.
       </p>
 
       {error ? (

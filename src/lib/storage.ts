@@ -3,6 +3,16 @@ import { defaultDoc } from "./defaultProgram";
 
 const KEY = "activitycards.doc.v1";
 
+/** Nombre de archivo seguro basado en el título de la ficha */
+export function fichaFileName(doc: ActivityDoc): string {
+  const raw = doc.kind === "sessions" ? doc.program.title : doc.activity.title;
+  const safe = (raw || "ficha")
+    .replace(/[<>:"/\\|?*]/g, "")
+    .trim()
+    .slice(0, 60);
+  return safe || "ficha";
+}
+
 function looksLikeLegacyProgram(x: unknown): x is Program {
   const p = x as any;
   return !!p && typeof p === "object" && typeof p.title === "string" && Array.isArray(p.sessions);
@@ -46,9 +56,18 @@ export function exportDocJson(doc: ActivityDoc) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "activitycards.doc.json";
+  a.download = `Ficha - ${fichaFileName(doc)}.json`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Descarga la ficha digital (JSON) + abre la vista de impresión en pestaña nueva.
+ * El usuario solo ve "Descargar ficha" — sin mencionar JSON.
+ */
+export function saveFichaBundle(doc: ActivityDoc) {
+  exportDocJson(doc);
+  window.open("#/print", "_blank", "noopener");
 }
 
 export function importDocJson(file: File): Promise<ActivityDoc> {

@@ -11,10 +11,10 @@
 @media print {
   @page {
     size: letter;
-    margin: 0.5in;
+    margin: 0.6in 0.5in;
   }
 
-  body {
+  body, :root {
     background: white !important;
   }
 
@@ -30,6 +30,71 @@
   .avoid-break {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* Each section: keep title + first lines together, add breathing room */
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: 1.25rem !important;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  /* Individual session rows: fondo azul claro para distinguirlas de las cajas grises */
+  .print-session-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 0.35rem !important;
+    border-radius: 0.5rem !important;
+    background: #eff6ff !important;
+    box-shadow: none !important;
+    border: 1px solid #bfdbfe !important;
+    padding: 0.4rem 0.75rem !important;
+  }
+
+  /* Field boxes en Difusión: conservar la caja gris, ajustar tipografía */
+  .print-field {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .print-field-label {
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.07em !important;
+    color: #94a3b8 !important;
+    margin-bottom: 0.15rem !important;
+  }
+
+  .print-field-value {
+    font-size: 0.82rem !important;
+    color: #1e293b !important;
+    line-height: 1.55 !important;
+  }
+
+  /* Difusión grid: dos columnas en print para aprovechar el ancho */
+  .print-grid-text {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0 1.5rem !important;
+  }
+
+  /* ── Anti-rasterización ──────────────────────────────────────
+     Chrome convierte toda la página a imagen cuando un contenedor
+     con overflow:hidden tiene un hijo con gradiente CSS.
+     Solución: quitar overflow + gradiente en print.           */
+  .print-card-wrapper {
+    overflow: visible !important;
+    border-radius: 0.5rem !important;
+    box-shadow: none !important;
+    background: transparent !important; /* evita el rectángulo gris fantasma al final */
+  }
+
+  .print-card-header {
+    border-radius: 0.5rem 0.5rem 0 0 !important;
   }
 
   /* Help Chrome print backgrounds */

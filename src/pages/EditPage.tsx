@@ -12,7 +12,7 @@ import type {
   Session,
   SessionAgendaItem,
 } from "../lib/types";
-import { exportDocJson, importDocJson } from "../lib/storage";
+import { exportDocJson, importDocJson, saveFichaBundle } from "../lib/storage";
 import {
   getActiveDocId,
   getDocById,
@@ -145,13 +145,13 @@ export function EditPage() {
             className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             to="/print"
           >
-            Exportar PDF
+            Vista PDF
           </Link>
         </div>
       </div>
 
       <div className="mt-3 text-sm text-slate-600">
-        Guardado automático en este navegador (localStorage). Usa Exportar/Importar para compartir.
+        Guardado automático en este dispositivo. Usa <b>Descargar ficha</b> para compartir con tu equipo.
       </div>
 
       {rec ? (
@@ -179,8 +179,9 @@ export function EditPage() {
                       upsertDoc(next);
                       return next;
                     });
-                    setStatus("Enviada a validación");
-                    setTimeout(() => setStatus(""), 1500);
+                    saveFichaBundle(doc);
+                    setStatus("Enviada a validación — se descargó la ficha para compartir.");
+                    setTimeout(() => setStatus(""), 4000);
                   }}
                 >
                   Enviar a validación
@@ -229,17 +230,29 @@ export function EditPage() {
             </select>
           </Field>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          {/* ── Acción principal de descarga ── */}
+          <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-4 ring-1 ring-black/5">
+            <div className="text-sm font-semibold text-slate-900">Descargar ficha</div>
+            <p className="mt-1 text-xs text-slate-500">
+              Se generarán dos archivos: <b>PDF</b> para imprimir o compartir, y la <b>ficha digital</b> para el sistema o para enviar por Drive / correo.
+            </p>
             <button
-              className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
-              onClick={() => exportDocJson(doc)}
               type="button"
+              className="mt-3 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+              onClick={() => saveFichaBundle(doc)}
             >
-              Exportar JSON
+              <span>⬇</span> Descargar ficha
             </button>
+          </div>
 
-            <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50">
-              Importar JSON
+          {/* ── Cargar ficha de otro dispositivo / compañero ── */}
+          <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-4 ring-1 ring-black/5">
+            <div className="text-sm font-semibold text-slate-900">Cargar ficha</div>
+            <p className="mt-1 text-xs text-slate-500">
+              Si recibiste una ficha digital de un compañero, ábrela aquí para editarla o enviarla a validación.
+            </p>
+            <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50">
+              <span>📂</span> Cargar ficha
               <input
                 type="file"
                 accept="application/json"
@@ -251,23 +264,37 @@ export function EditPage() {
                 }}
               />
             </label>
-
-            <button
-              className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
-              onClick={() => downloadMarkdown(doc)}
-              type="button"
-            >
-              Descargar Markdown
-            </button>
-
-            <button
-              className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
-              onClick={() => setConfirmReset(true)}
-              type="button"
-            >
-              Reset
-            </button>
           </div>
+
+          {/* ── Opciones avanzadas ── */}
+          <details className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-black/5">
+            <summary className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700">
+              Opciones avanzadas
+            </summary>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+                onClick={() => exportDocJson(doc)}
+                type="button"
+              >
+                Solo ficha digital (.json)
+              </button>
+              <button
+                className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+                onClick={() => downloadMarkdown(doc)}
+                type="button"
+              >
+                Descargar Markdown
+              </button>
+              <button
+                className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                onClick={() => setConfirmReset(true)}
+                type="button"
+              >
+                Restablecer
+              </button>
+            </div>
+          </details>
         </Card>
 
         {doc.kind === "sessions" ? (

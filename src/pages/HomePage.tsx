@@ -39,13 +39,8 @@ export function HomePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">ActivityCards</h1>
-          <div className="mt-1 text-sm text-slate-600">
-            Sesión: <b>{auth.name}</b> · Rol: <b>{ROLE_LABEL[auth.role]}</b>
-          </div>
-        </div>
+      <div className="flex items-center justify-between">
+        <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
         <button
           type="button"
           className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
@@ -61,8 +56,8 @@ export function HomePage() {
 
       <section className="mt-8 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
         <div className="bg-gradient-to-r from-slate-900 to-slate-700 px-8 py-8 text-white">
-          <div className="text-xs font-semibold/none opacity-80">Herramienta institucional</div>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight">Crea y gestiona fichas en minutos</h2>
+          <div className="text-xs font-semibold opacity-80 uppercase tracking-widest">Centro Multimedia · CENART</div>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight">Gestor de fichas de actividades</h2>
           <p className="mt-2 max-w-2xl text-sm opacity-90">
             Dos pasos: <b>crear</b> una ficha con el wizard y luego <b>ver</b> (editar, enviar a validación, exportar PDF).
           </p>
@@ -94,8 +89,8 @@ export function HomePage() {
             hoverItems={["Abrir ficha", "Editar", "Enviar a validación", "Exportar PDF / JSON"]}
           />
 
-          {hasPermission(auth.role, "USERS_MANAGE") ? (
-            <div className="sm:col-span-2 mt-2">
+          <div className="sm:col-span-2 mt-2 flex flex-wrap items-center gap-3">
+            {hasPermission(auth.role, "USERS_MANAGE") ? (
               <Link
                 to="/admin"
                 className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
@@ -103,11 +98,9 @@ export function HomePage() {
                 <Icons.Settings size={16} />
                 Administración
               </Link>
-            </div>
-          ) : null}
+            ) : null}
 
-          {hasPermission(auth.role, "DOC_VALIDATE") ? (
-            <div className="sm:col-span-2">
+            {hasPermission(auth.role, "DOC_VALIDATE") ? (
               <Link
                 to="/director"
                 className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
@@ -115,8 +108,12 @@ export function HomePage() {
                 <Icons.BadgeCheck size={16} />
                 Validación (directores)
               </Link>
-            </div>
-          ) : null}
+            ) : null}
+
+            <span className="ml-auto text-xs text-slate-500">
+              <b>{auth.name}</b> · {ROLE_LABEL[auth.role]}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -145,31 +142,28 @@ function HeroAction({
   return (
     <Link
       to={to}
-      className="group relative flex min-h-[230px] flex-col overflow-hidden rounded-3xl bg-white p-7 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group relative flex min-h-[220px] flex-col items-center justify-center overflow-hidden rounded-3xl bg-white p-7 text-center ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md"
     >
-      {/* ── Default state ── */}
-      <div className="flex items-start gap-4">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700 ring-1 ring-black/5 transition group-hover:bg-indigo-50 group-hover:text-indigo-700">
+      {/* ── Default state: centrado vertical y horizontal, se desvanece al hover ── */}
+      <div className="flex flex-col items-center gap-3 transition-opacity duration-200 group-hover:opacity-0">
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-50 text-slate-700 ring-1 ring-black/5">
           {icon}
         </span>
-        <div className="min-w-0">
+        <div>
           <div className="text-xl font-semibold tracking-tight text-slate-900">{title}</div>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{desc}</p>
+          <p className="mt-1.5 max-w-[200px] text-sm leading-relaxed text-slate-500">{desc}</p>
         </div>
       </div>
 
-      {/* ── Hover overlay: gradient tint + info panel ── */}
-      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
-        {/* subtle tint */}
+      {/* ── Hover overlay: reemplaza el contenido, sin repetir ícono ni título ── */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/8 via-transparent to-cyan-400/8" />
-
-        {/* info panel — anchored to bottom, never overflows because min-h ensures room */}
-        <div className="absolute bottom-0 left-0 right-0 p-5">
-          <div className="rounded-2xl bg-white/92 px-4 py-3 ring-1 ring-black/8 backdrop-blur-sm">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+        <div className="relative w-full px-5">
+          <div className="rounded-2xl bg-white/95 px-4 py-4 ring-1 ring-black/8 backdrop-blur-sm">
+            <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
               {hoverTitle}
             </div>
-            <ul className="space-y-1">
+            <ul className="space-y-1.5">
               {hoverItems.map((it) => (
                 <li key={it} className="flex items-center gap-2 text-sm text-slate-700">
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />

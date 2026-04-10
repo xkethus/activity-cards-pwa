@@ -1,5 +1,6 @@
 import type { ActivityDoc } from "../lib/types";
 import { formatDateDMY, formatTimeToH } from "../lib/format";
+import { fichaFileName } from "../lib/storage";
 
 export function toMarkdown(doc: ActivityDoc): string {
   if (doc.kind === "sessions") {
@@ -145,7 +146,7 @@ export function downloadMarkdown(doc: ActivityDoc) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "activitycards.doc.md";
+  a.download = `Ficha - ${fichaFileName(doc)}.md`;
   a.click();
   URL.revokeObjectURL(url);
 }

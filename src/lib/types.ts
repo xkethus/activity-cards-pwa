@@ -38,6 +38,15 @@ export type SessionLite = {
   durationHours: number;
 };
 
+// Horario fijo: un único bloque que aplica a todas las sesiones
+export type FixedSchedule = {
+  startDateISO: string; // YYYY-MM-DD — primera sesión
+  endDateISO: string;   // YYYY-MM-DD — última sesión
+  weekdays: string[];   // ["Sábados"] | ["Lunes", "Miércoles"] etc.
+  startTime: string;    // HH:mm
+  endTime: string;      // HH:mm
+};
+
 // --- Activity templates (from docs/*.docx) ---
 
 export type ActivityType = "artistic" | "course";
@@ -86,13 +95,10 @@ export type CourseActivity = {
 
   // Horario (puede ser igual para todas las sesiones o variable)
   scheduleMode?: "SAME" | "VARIABLE";
-  generalSchedule?: {
-    dateISO: string; // opcional
-    startTime: string;
-    endTime: string;
-  };
+  // Modo SAME: un solo bloque con periodo + días + horario
+  fixedSchedule?: FixedSchedule;
 
-  // Nota: se conserva por compatibilidad, pero ya no debe ser obligatoria.
+  // Nota: se conserva por compatibilidad con datos anteriores.
   dateAndTime: string;
 
   place: string;
