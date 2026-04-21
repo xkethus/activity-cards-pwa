@@ -1,0 +1,17 @@
+<svg viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="192" height="192" fill="#1f2937" rx="45"/>
+
+  <!-- Card shapes -->
+  <g fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round">
+    <!-- Top left card -->
+    <rect x="30" y="30" width="50" height="70" rx="4"/>
+    <!-- Top right card -->
+    <rect x="92" y="30" width="50" height="70" rx="4" opacity="0.7"/>
+    <!-- Bottom card -->
+    <rect x="61" y="92" width="50" height="70" rx="4" opacity="0.5"/>
+  </g>
+
+  <!-- Accent dot -->
+  <circle cx="155" cy="155" r="12" fill="#10b981"/>
+</svg>
