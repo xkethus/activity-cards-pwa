@@ -1,0 +1,33 @@
+╔══════════════════════════════════════════════════════════╗
+║            ACTIVITY CARDS — CENART                      ║
+║            Instrucciones de instalación                  ║
+╚══════════════════════════════════════════════════════════╝
+
+INSTALAR (solo la primera vez)
+────────────────────────────────
+1. Extrae este ZIP si aún no lo has hecho.
+
+2. Abre el archivo:
+      "Abrir Activity Cards.command"
+
+   ⚠ PRIMERA VEZ: haz clic derecho → "Abrir"
+      y confirma en el aviso de seguridad.
+      Las siguientes veces bastará con doble clic.
+
+3. Se abrirá Chrome con la aplicación.
+   En la barra de Chrome busca el ícono ⊕ (instalar)
+   o ve al menú (⋮) → "Instalar Activity Cards".
+
+   Haz clic en "Instalar" — listo.
+
+USO DIARIO
+────────────────────────────────
+Una vez instalada, la app aparece en tu Launchpad
+y Dock como cualquier aplicación. No necesitas
+volver a abrir el script.
+
+Si la app no abre directamente, repite el paso 2.
+
+SOPORTE
+────────────────────────────────
+Contacta al equipo de sistemas de CENART.
