@@ -1,3 +1,6 @@
+// vite.config.js — idéntico a vite.config.ts
+// (Vite carga .js antes que .ts; ambos deben ser iguales)
+// Para limpiar: rm vite.config.js y queda solo el .ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -45,10 +48,7 @@ export default defineConfig({
           { src: 'pwa-icon.svg',              sizes: 'any',     type: 'image/svg+xml', purpose: 'any' },
         ],
       },
-      devOptions: {
-        enabled: false,
-        type: 'module',
-      },
+      devOptions: { enabled: false, type: 'module' },
     }),
   ],
 })
