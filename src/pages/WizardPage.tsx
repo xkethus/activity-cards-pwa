@@ -11,7 +11,7 @@ import { CourseCard } from "../components/CourseCard";
 import { ArtisticCard } from "../components/ArtisticCard";
 import { DateTimeRangeField } from "../components/DateTimeRangeField";
 import { DatePickerField } from "../components/DatePickerField";
-import { LAB_OPTIONS } from "../lib/labs";
+import { LAB_OPTIONS, PLACE_OPTIONS, PLACE_NEEDS_DESC, PLACE_SEP, parsePlaceValue } from "../lib/labs";
 import { HelpTip } from "../components/Tooltip";
 import { StepCard } from "../components/StepCard";
 import { DotNav } from "../components/DotNav";
@@ -122,6 +122,36 @@ function setLiteSession(s: SessionLite, patch: Partial<SessionLite>): SessionLit
 }
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function PlaceSelect({ value, onChange, cls }: { value: string; onChange: (v: string) => void; cls: string }) {
+  const { base, desc } = parsePlaceValue(value);
+  const needsDesc = PLACE_NEEDS_DESC.includes(base as any);
+  return (
+    <div className="space-y-2">
+      <select
+        className={cls}
+        value={base || ""}
+        onChange={(e) => {
+          const v = e.target.value;
+          onChange(PLACE_NEEDS_DESC.includes(v as any) ? v : v);
+        }}
+      >
+        <option value="">— Seleccionar —</option>
+        {PLACE_OPTIONS.map((p) => (
+          <option key={p} value={p}>{p}</option>
+        ))}
+      </select>
+      {needsDesc && (
+        <input
+          className={cls}
+          value={desc}
+          placeholder={base === "Varios" ? "Describe los espacios..." : "Describe el lugar..."}
+          onChange={(e) => onChange(e.target.value ? `${base}${PLACE_SEP}${e.target.value}` : base)}
+        />
+      )}
+    </div>
+  );
+}
 
 function emptyFixedSchedule(): FixedSchedule {
   return { startDateISO: "", endDateISO: "", weekdays: [], startTime: "", endTime: "" };
@@ -290,10 +320,7 @@ export function WizardPage() {
     <div className="mx-auto max-w-5xl px-4 py-10">
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900">Creador de ficha</h1>
-        </div>
+        <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
         <Link
           to="/"
           className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
@@ -632,8 +659,8 @@ export function WizardPage() {
                   </div>
                 </Field>
 
-                <Field label={<><Req />Lugar<HelpTip text="Sede o ubicación." /></>}>
-                  <input className={inputCls} value={course.place} onChange={(e) => setCourse((c) => ({ ...c, place: e.target.value }))} placeholder="Ej. Sala A / Centro Cultural" />
+                <Field label={<><Req />Lugar<HelpTip text="Espacio donde se realiza la actividad." /></>}>
+                  <PlaceSelect value={course.place} onChange={(v) => setCourse((c) => ({ ...c, place: v }))} cls={inputCls} />
                 </Field>
 
                 <Field label={<><Req />Modalidad<HelpTip text="Presencial / En línea / Híbrida." /></>}>
@@ -842,7 +869,7 @@ export function WizardPage() {
                   <DateTimeRangeField value={art.setupSchedule} onChange={(v) => setArt((a) => ({ ...a, setupSchedule: v }))} />
                 </Field>
                 <Field label={<><Req />Lugar</>}>
-                  <input className={inputCls} value={art.place} onChange={(e) => setArt((a) => ({ ...a, place: e.target.value }))} placeholder="Ej. Foro principal / Sala de exposiciones" />
+                  <PlaceSelect value={art.place} onChange={(v) => setArt((a) => ({ ...a, place: v }))} cls={inputCls} />
                 </Field>
                 <Field label={<>Particularidades<HelpTip text="Cosas a considerar: accesibilidad, restricciones, montaje especial, etc." /></>}>
                   <input className={inputCls} value={art.particularities} onChange={(e) => setArt((a) => ({ ...a, particularities: e.target.value }))} placeholder="Ej. Se requiere oscuridad total para la instalación / N/A" />

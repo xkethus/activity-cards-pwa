@@ -7,6 +7,7 @@ import { ArtisticCard } from "../components/ArtisticCard";
 import { CourseCard } from "../components/CourseCard";
 import { loadAuth } from "../lib/auth";
 import { getActiveDocId, getDocById, loadDocs, setActiveDocId } from "../lib/db";
+import { downloadDocx } from "../exports/toDocx";
 
 export function ViewPage() {
   const auth = loadAuth();
@@ -53,15 +54,22 @@ export function ViewPage() {
     return (
       <div>
         <div className="no-print">
-          <header className="mx-auto max-w-5xl px-4 pt-10 pb-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Actividad artística</h1>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <header className="mx-auto max-w-5xl px-4 pt-10 pb-2 flex flex-wrap items-center justify-between gap-3">
+            <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
+            <div className="flex flex-wrap gap-2">
               <Link className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50" to="/docs">
                 Fichas
               </Link>
               <Link className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50" to="/edit">
                 Editar
               </Link>
+              <button
+                type="button"
+                className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+                onClick={() => downloadDocx(doc)}
+              >
+                Descargar DOCX
+              </button>
               <Link className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700" to="/print">
                 Exportar PDF
               </Link>
@@ -77,15 +85,22 @@ export function ViewPage() {
     return (
       <div>
         <div className="no-print">
-          <header className="mx-auto max-w-5xl px-4 pt-10 pb-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Curso / Taller / Seminario</h1>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <header className="mx-auto max-w-5xl px-4 pt-10 pb-2 flex flex-wrap items-center justify-between gap-3">
+            <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
+            <div className="flex flex-wrap gap-2">
               <Link className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50" to="/docs">
                 Fichas
               </Link>
               <Link className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50" to="/edit">
                 Editar
               </Link>
+              <button
+                type="button"
+                className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+                onClick={() => downloadDocx(doc)}
+              >
+                Descargar DOCX
+              </button>
               <Link className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700" to="/print">
                 Exportar PDF
               </Link>
@@ -119,6 +134,13 @@ export function ViewPage() {
           <Link className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50" to="/edit">
             Editar
           </Link>
+          <button
+            type="button"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
+            onClick={() => downloadDocx(doc)}
+          >
+            Descargar DOCX
+          </button>
           <Link className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700" to="/print">
             Exportar PDF
           </Link>

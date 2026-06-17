@@ -58,7 +58,7 @@ export function AdminPage() {
         />
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Administración</h1>
+        <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
         <Link
           to="/"
           className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"

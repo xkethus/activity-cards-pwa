@@ -5,6 +5,8 @@ import {
   BadgeCheck,
   LogOut,
   LogIn,
+  CalendarRange,
+  BookOpen,
 } from "lucide-react";
 
 export const Icons = {
@@ -14,4 +16,6 @@ export const Icons = {
   BadgeCheck,
   LogOut,
   LogIn,
+  CalendarRange,
+  BookOpen,
 };

@@ -163,6 +163,12 @@ export function setActiveDocId(id: string | null) {
   else localStorage.setItem(ACTIVE_DOC_KEY, id);
 }
 
+export function deleteDoc(id: string) {
+  const docs = loadDocs().filter((d) => d.id !== id);
+  saveDocs(docs);
+  if (getActiveDocId() === id) setActiveDocId(null);
+}
+
 export function getOrCreateFirstDoc(ownerId: string): ActivityRecord {
   const docs = loadDocs();
   if (docs.length) return docs[0];

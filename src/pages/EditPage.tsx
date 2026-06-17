@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DatePickerField } from "../components/DatePickerField";
+import { DateTimeRangeField } from "../components/DateTimeRangeField";
 import { validateForSubmission } from "../lib/validation";
 import { HelpTip } from "../components/Tooltip";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -30,6 +31,7 @@ import {
 } from "../lib/defaultProgram";
 import { normalizeLiteSessions } from "../lib/courseSessions";
 import { downloadMarkdown } from "../exports/toMarkdown";
+import { LAB_OPTIONS, PLACE_OPTIONS, PLACE_NEEDS_DESC, PLACE_SEP, parsePlaceValue } from "../lib/labs";
 
 export function EditPage() {
   const nav = useNavigate();
@@ -127,7 +129,7 @@ export function EditPage() {
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Editar</h1>
+        <img src="/logo.png" alt="Centro Multimedia-CENART" className="h-9 w-auto" />
         <div className="flex flex-wrap gap-2">
           <Link
             className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-black/5 hover:bg-slate-50"
@@ -456,7 +458,10 @@ function ArtisticEditor({
         <input className={inputCls} value={activity.participants} onChange={(e) => onChange({ ...activity, participants: e.target.value })} />
       </Field>
       <Field label="Laboratorio que organiza">
-        <input className={inputCls} value={activity.organizingLab} onChange={(e) => onChange({ ...activity, organizingLab: e.target.value })} />
+        <select className={inputCls} value={activity.organizingLab} onChange={(e) => onChange({ ...activity, organizingLab: e.target.value })}>
+          <option value="">—</option>
+          {LAB_OPTIONS.map((lab) => <option key={lab} value={lab}>{lab}</option>)}
+        </select>
       </Field>
       <Field label="Nombre del ciclo">
         <input className={inputCls} value={activity.cycleName} onChange={(e) => onChange({ ...activity, cycleName: e.target.value })} />
@@ -476,16 +481,16 @@ function ArtisticEditor({
         </select>
       </Field>
       <Field label="Fecha y horarios">
-        <input className={inputCls} value={activity.dateAndTime} onChange={(e) => onChange({ ...activity, dateAndTime: e.target.value })} />
+        <DateTimeRangeField value={activity.dateAndTime} onChange={(v) => onChange({ ...activity, dateAndTime: v })} />
       </Field>
-      <Field label="Ensayos (fecha y horarios)">
-        <input className={inputCls} value={activity.rehearsalSchedule} onChange={(e) => onChange({ ...activity, rehearsalSchedule: e.target.value })} />
+      <Field label="Ensayos">
+        <DateTimeRangeField value={activity.rehearsalSchedule} onChange={(v) => onChange({ ...activity, rehearsalSchedule: v })} />
       </Field>
-      <Field label="Montaje (fecha y horarios)">
-        <input className={inputCls} value={activity.setupSchedule} onChange={(e) => onChange({ ...activity, setupSchedule: e.target.value })} />
+      <Field label="Montaje">
+        <DateTimeRangeField value={activity.setupSchedule} onChange={(v) => onChange({ ...activity, setupSchedule: v })} />
       </Field>
       <Field label="Lugar">
-        <input className={inputCls} value={activity.place} onChange={(e) => onChange({ ...activity, place: e.target.value })} />
+        <PlaceSelect value={activity.place} onChange={(v) => onChange({ ...activity, place: v })} />
       </Field>
       <Field label="Particularidades">
         <textarea className={textareaCls} rows={3} value={activity.particularities} onChange={(e) => onChange({ ...activity, particularities: e.target.value })} />
@@ -561,7 +566,10 @@ function CourseEditor({
         <input className={inputCls} value={activity.instructor} onChange={(e) => onChange({ ...activity, instructor: e.target.value })} />
       </Field>
       <Field label="Laboratorio que organiza">
-        <input className={inputCls} value={activity.organizingLab} onChange={(e) => onChange({ ...activity, organizingLab: e.target.value })} />
+        <select className={inputCls} value={activity.organizingLab} onChange={(e) => onChange({ ...activity, organizingLab: e.target.value })}>
+          <option value="">—</option>
+          {LAB_OPTIONS.map((lab) => <option key={lab} value={lab}>{lab}</option>)}
+        </select>
       </Field>
       <Field label="Correo de contacto">
         <input className={inputCls} value={activity.contactEmail} onChange={(e) => onChange({ ...activity, contactEmail: e.target.value })} />
@@ -631,11 +639,8 @@ function CourseEditor({
           }}
         />
       </div>
-      <Field label="Fecha y horarios">
-        <input className={inputCls} value={activity.dateAndTime} onChange={(e) => onChange({ ...activity, dateAndTime: e.target.value })} />
-      </Field>
       <Field label="Lugar">
-        <input className={inputCls} value={activity.place} onChange={(e) => onChange({ ...activity, place: e.target.value })} />
+        <PlaceSelect value={activity.place} onChange={(v) => onChange({ ...activity, place: v })} />
       </Field>
       <Field label="Actividad seriada (ciclo/marco)">
         <input className={inputCls} value={activity.seriesInfo} onChange={(e) => onChange({ ...activity, seriesInfo: e.target.value })} />
@@ -1012,3 +1017,30 @@ function LiteSessionsEditor({
 
 const inputCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";
 const textareaCls = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2";
+
+function PlaceSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { base, desc } = parsePlaceValue(value);
+  const needsDesc = PLACE_NEEDS_DESC.includes(base as any);
+  return (
+    <div className="space-y-2">
+      <select
+        className={inputCls}
+        value={base || ""}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">— Seleccionar —</option>
+        {PLACE_OPTIONS.map((p) => (
+          <option key={p} value={p}>{p}</option>
+        ))}
+      </select>
+      {needsDesc && (
+        <input
+          className={inputCls}
+          value={desc}
+          placeholder={base === "Varios" ? "Describe los espacios..." : "Describe el lugar..."}
+          onChange={(e) => onChange(e.target.value ? `${base}${PLACE_SEP}${e.target.value}` : base)}
+        />
+      )}
+    </div>
+  );
+}
