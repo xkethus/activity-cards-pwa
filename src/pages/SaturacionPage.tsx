@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { loadAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
@@ -43,6 +43,44 @@ function heatColor(v: number) {
 }
 
 type Filtros = { areaOn: Record<string, boolean>; countCont: boolean; showTent: boolean };
+
+function computeStats(acts: Act[], sesByAct: Record<string, Ses[]>, f: Filtros) {
+  const sesOf = (a: Act): { inicio: string; fin: string }[] => {
+    const ss = sesByAct[a.id];
+    if (ss && ss.length) return ss;
+    if (a.inicio && a.fin) return [{ inicio: a.inicio, fin: a.fin }];
+    return [];
+  };
+  const vis = acts.filter((a) => !a.oculta && f.areaOn[a.area] !== false && (f.showTent || !a.tentativa));
+  const heatActs = vis.filter((a) => f.countCont || !a.continua);
+  let sesiones = 0;
+  vis.forEach((a) => (sesiones += sesOf(a).length));
+  const heat = new Array(DAYS).fill(0) as number[];
+  heatActs.forEach((a) => {
+    const d = new Set<number>();
+    sesOf(a).forEach((s) => {
+      for (let i = di(s.inicio); i <= di(s.fin); i++) if (i >= 0 && i < DAYS) d.add(i);
+    });
+    d.forEach((i) => heat[i]++);
+  });
+  let pico = 0,
+    pidx = 0;
+  heat.forEach((v, i) => {
+    if (v > pico) {
+      pico = v;
+      pidx = i;
+    }
+  });
+  return {
+    actividades: vis.length,
+    sesiones,
+    pico,
+    picoFecha: pico > 0 ? new Date(D0 + pidx * 86400000).toISOString().slice(0, 10) : null,
+    tentativas: vis.filter((a) => a.tentativa).length,
+    permanentes: vis.filter((a) => a.continua).length,
+    areas: new Set(vis.map((a) => a.area)).size,
+  };
+}
 
 function buildGantt(host: HTMLDivElement, acts: Act[], sesByAct: Record<string, Ses[]>, tip: HTMLDivElement, f: Filtros) {
   const WIDTH = DAYS * DAYW;
@@ -237,6 +275,11 @@ export function SaturacionPage() {
     ? Object.keys(AREACOLORS).filter((a) => dataRef.current!.acts.some((x) => x.area === a))
     : [];
 
+  const stats = useMemo(
+    () => (state === "ready" && dataRef.current ? computeStats(dataRef.current.acts, dataRef.current.sesByAct, { areaOn, countCont, showTent }) : null),
+    [state, areaOn, countCont, showTent]
+  );
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <Link to="/" className="text-sm text-slate-500 hover:text-slate-700">
@@ -266,6 +309,17 @@ export function SaturacionPage() {
         </p>
       ) : (
         <>
+          {stats ? (
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Kpi n={stats.actividades} label="Actividades" />
+              <Kpi n={stats.sesiones} label="Sesiones" />
+              <Kpi n={stats.pico} label="Pico simultáneo" sub={stats.picoFecha ? dlabel(stats.picoFecha) : "—"} />
+              <Kpi n={stats.areas} label="Áreas activas" />
+              <Kpi n={stats.tentativas} label="Tentativas" />
+              <Kpi n={stats.permanentes} label="Permanentes" />
+            </div>
+          ) : null}
+
           <div className="mt-6 flex flex-wrap items-center gap-2">
             {areasConDatos.map((a) => {
               const on = areaOn[a] !== false;
@@ -321,6 +375,16 @@ export function SaturacionPage() {
           boxShadow: "0 8px 24px rgba(0,0,0,.5)",
         }}
       />
+    </div>
+  );
+}
+
+function Kpi({ n, label, sub }: { n: number; label: string; sub?: string }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
+      <div className="text-2xl font-semibold leading-none tracking-tight text-slate-900">{n}</div>
+      <div className="mt-1 text-xs text-slate-500">{label}</div>
+      {sub ? <div className="text-[11px] text-slate-400">{sub}</div> : null}
     </div>
   );
 }
