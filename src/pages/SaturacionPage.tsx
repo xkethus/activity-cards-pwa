@@ -42,7 +42,9 @@ function heatColor(v: number) {
   return "rgb(" + c.join(",") + ")";
 }
 
-function buildGantt(host: HTMLDivElement, acts: Act[], sesByAct: Record<string, Ses[]>, tip: HTMLDivElement) {
+type Filtros = { areaOn: Record<string, boolean>; countCont: boolean; showTent: boolean };
+
+function buildGantt(host: HTMLDivElement, acts: Act[], sesByAct: Record<string, Ses[]>, tip: HTMLDivElement, f: Filtros) {
   const WIDTH = DAYS * DAYW;
   host.innerHTML = "";
   host.style.width = WIDTH + LAB + "px";
@@ -52,8 +54,8 @@ function buildGantt(host: HTMLDivElement, acts: Act[], sesByAct: Record<string, 
     if (a.inicio && a.fin) return [{ inicio: a.inicio, fin: a.fin, tipo: a.continua ? "continua" : "bloque" }];
     return [];
   };
-  const visibles = acts.filter((a) => !a.oculta);
-  const heatActs = visibles.filter((a) => !a.continua);
+  const visibles = acts.filter((a) => !a.oculta && f.areaOn[a.area] !== false && (f.showTent || !a.tentativa));
+  const heatActs = visibles.filter((a) => f.countCont || !a.continua);
   const heat = new Array(DAYS).fill(0) as number[];
   heatActs.forEach((a) => {
     const days = new Set<number>();
@@ -180,8 +182,17 @@ export function SaturacionPage() {
   const allowed = !!auth && (auth.role === "ADMIN" || auth.role === "DIRECTOR");
   const hostRef = useRef<HTMLDivElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
+  const dataRef = useRef<{ acts: Act[]; sesByAct: Record<string, Ses[]> } | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [msg, setMsg] = useState("");
+
+  const [areaOn, setAreaOn] = useState<Record<string, boolean>>(() => {
+    const o: Record<string, boolean> = {};
+    Object.keys(AREACOLORS).forEach((a) => (o[a] = true));
+    return o;
+  });
+  const [countCont, setCountCont] = useState(false);
+  const [showTent, setShowTent] = useState(true);
 
   useEffect(() => {
     if (!allowed) return;
@@ -204,12 +215,27 @@ export function SaturacionPage() {
       ((rs.data || []) as Ses[]).forEach((s) => {
         (sesByAct[s.actividad_id] = sesByAct[s.actividad_id] || []).push(s);
       });
+      dataRef.current = { acts, sesByAct };
       setState("ready");
-      requestAnimationFrame(() => {
-        if (hostRef.current && tipRef.current) buildGantt(hostRef.current, acts, sesByAct, tipRef.current);
-      });
     })();
   }, [allowed]);
+
+  // Reconstruye el Gantt cuando hay datos o cambian los filtros.
+  useEffect(() => {
+    if (state !== "ready" || !dataRef.current) return;
+    requestAnimationFrame(() => {
+      if (hostRef.current && tipRef.current)
+        buildGantt(hostRef.current, dataRef.current!.acts, dataRef.current!.sesByAct, tipRef.current, {
+          areaOn,
+          countCont,
+          showTent,
+        });
+    });
+  }, [state, areaOn, countCont, showTent]);
+
+  const areasConDatos = dataRef.current
+    ? Object.keys(AREACOLORS).filter((a) => dataRef.current!.acts.some((x) => x.area === a))
+    : [];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -239,9 +265,44 @@ export function SaturacionPage() {
           Aún no hay actividades para mostrar. Cuando se capturen fichas con sesiones, aparecerán aquí.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-2xl ring-1 ring-black/10" style={{ background: "#0f1117" }}>
-          <div ref={hostRef} style={{ position: "relative", color: "#e7eaf0", font: "13px -apple-system,Segoe UI,Roboto,sans-serif" }} />
-        </div>
+        <>
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {areasConDatos.map((a) => {
+              const on = areaOn[a] !== false;
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setAreaOn((s) => ({ ...s, [a]: !on }))}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 transition ${
+                    on ? "bg-white text-slate-700 ring-black/10" : "bg-slate-100 text-slate-400 ring-transparent line-through"
+                  }`}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: AREACOLORS[a] }} />
+                  {a}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-5 text-xs text-slate-600">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={countCont} onChange={(e) => setCountCont(e.target.checked)} />
+              Contar actividades permanentes en la saturación
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={showTent} onChange={(e) => setShowTent(e.target.checked)} />
+              Mostrar tentativas (solo mes confirmado)
+            </label>
+            <span className="ml-auto inline-flex items-center gap-1 text-slate-400">
+              <span>1 actividad</span>
+              <span className="inline-block h-3 w-24 rounded" style={{ background: "linear-gradient(90deg,#1d3b2f,#3a7d3a,#cfd14a,#e8923a,#d6453a)" }} />
+              <span>4 o más</span>
+            </span>
+          </div>
+          <div className="mt-4 overflow-x-auto rounded-2xl ring-1 ring-black/10" style={{ background: "#0f1117" }}>
+            <div ref={hostRef} style={{ position: "relative", color: "#e7eaf0", font: "13px -apple-system,Segoe UI,Roboto,sans-serif" }} />
+          </div>
+        </>
       )}
       <div
         ref={tipRef}
